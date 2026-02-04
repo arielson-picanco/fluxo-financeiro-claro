@@ -20,6 +20,7 @@ export type EntityType =
   | 'account_receivable' 
   | 'attachment' 
   | 'user' 
+  | 'user_role'
   | 'system';
 
 interface LogParams {

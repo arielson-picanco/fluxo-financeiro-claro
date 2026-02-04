@@ -1,5 +1,7 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useAuth } from "@/hooks/useAuth";
+import { useUsers, UserWithRole } from "@/hooks/useUsers";
+import { useAvatarUpload } from "@/hooks/useAvatarUpload";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -7,15 +9,16 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Skeleton } from "@/components/ui/skeleton";
 import { 
   User, 
   Shield, 
-  Bell, 
   Building2,
   Save,
-  Plus,
   Trash2,
   Users,
+  Loader2,
+  Camera,
 } from "lucide-react";
 import {
   Select,
@@ -32,21 +35,26 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { DeleteConfirmModal } from "@/components/modals/DeleteConfirmModal";
 import { roleLabels, type AppRole } from "@/lib/supabase";
 import { toast } from "sonner";
 
-// Mock users for admin view
-const mockUsers = [
-  { id: '1', name: 'Admin Principal', email: 'admin@empresa.com', role: 'admin' as AppRole },
-  { id: '2', name: 'Maria Financeiro', email: 'maria@empresa.com', role: 'financeiro' as AppRole },
-  { id: '3', name: 'João Visualizador', email: 'joao@empresa.com', role: 'visualizacao' as AppRole },
-];
-
 export default function Settings() {
-  const { profile, isAdmin, updateProfile } = useAuth();
+  const { profile, isAdmin, updateProfile, user } = useAuth();
+  const { users, isLoading: isLoadingUsers, updateRole, deleteUser, isUpdatingRole, isDeleting } = useUsers();
+  const { uploadAvatar, isUploading } = useAvatarUpload();
   const [name, setName] = useState(profile?.name || '');
   const [phone, setPhone] = useState(profile?.phone || '');
   const [isSaving, setIsSaving] = useState(false);
+  const [userToDelete, setUserToDelete] = useState<UserWithRole | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (profile) {
+      setName(profile.name || '');
+      setPhone(profile.phone || '');
+    }
+  }, [profile]);
 
   const handleSaveProfile = async () => {
     setIsSaving(true);
@@ -57,6 +65,24 @@ export default function Settings() {
       toast.error('Erro ao atualizar perfil');
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      await uploadAvatar(file);
+    }
+  };
+
+  const handleRoleChange = (userId: string, newRole: AppRole) => {
+    updateRole({ userId, role: newRole });
+  };
+
+  const handleDeleteUser = () => {
+    if (userToDelete) {
+      deleteUser(userToDelete.id);
+      setUserToDelete(null);
     }
   };
 
@@ -109,15 +135,40 @@ export default function Settings() {
               </CardHeader>
               <CardContent className="space-y-6">
                 <div className="flex items-center gap-6">
-                  <Avatar className="h-20 w-20">
-                    <AvatarImage src={profile?.avatar_url || undefined} />
-                    <AvatarFallback className="text-xl bg-primary text-primary-foreground">
-                      {profile?.name ? getInitials(profile.name) : 'U'}
-                    </AvatarFallback>
-                  </Avatar>
+                  <div className="relative group">
+                    <Avatar className="h-20 w-20">
+                      <AvatarImage src={profile?.avatar_url || undefined} />
+                      <AvatarFallback className="text-xl bg-primary text-primary-foreground">
+                        {profile?.name ? getInitials(profile.name) : 'U'}
+                      </AvatarFallback>
+                    </Avatar>
+                    <button
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={isUploading}
+                      className="absolute inset-0 flex items-center justify-center bg-black/50 rounded-full opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+                    >
+                      {isUploading ? (
+                        <Loader2 className="h-6 w-6 text-white animate-spin" />
+                      ) : (
+                        <Camera className="h-6 w-6 text-white" />
+                      )}
+                    </button>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={handleAvatarChange}
+                    />
+                  </div>
                   <div>
-                    <Button variant="outline" size="sm">
-                      Alterar foto
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={isUploading}
+                    >
+                      {isUploading ? 'Enviando...' : 'Alterar foto'}
                     </Button>
                     <p className="text-xs text-muted-foreground mt-1">
                       JPG, PNG ou GIF. Máximo 2MB.
@@ -196,56 +247,75 @@ export default function Settings() {
                   <div>
                     <CardTitle className="text-lg">Gerenciar Usuários</CardTitle>
                     <CardDescription>
-                      Adicione, remova ou altere permissões de usuários
+                      Visualize e altere permissões de usuários do sistema
                     </CardDescription>
                   </div>
-                  <Button size="sm">
-                    <Plus className="h-4 w-4 mr-2" />
-                    Convidar Usuário
-                  </Button>
                 </div>
               </CardHeader>
               <CardContent>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Usuário</TableHead>
-                      <TableHead>Email</TableHead>
-                      <TableHead>Permissão</TableHead>
-                      <TableHead className="w-12"></TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {mockUsers.map((user) => (
-                      <TableRow key={user.id}>
-                        <TableCell className="font-medium">{user.name}</TableCell>
-                        <TableCell className="text-muted-foreground">{user.email}</TableCell>
-                        <TableCell>
-                          <Select defaultValue={user.role}>
-                            <SelectTrigger className="w-[150px]">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="admin">Administrador</SelectItem>
-                              <SelectItem value="financeiro">Financeiro</SelectItem>
-                              <SelectItem value="visualizacao">Visualização</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </TableCell>
-                        <TableCell>
-                          <Button 
-                            variant="ghost" 
-                            size="icon"
-                            className="text-destructive hover:text-destructive"
-                            disabled={user.role === 'admin'}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </TableCell>
-                      </TableRow>
+                {isLoadingUsers ? (
+                  <div className="space-y-2">
+                    {[...Array(3)].map((_, i) => (
+                      <Skeleton key={i} className="h-12 w-full" />
                     ))}
-                  </TableBody>
-                </Table>
+                  </div>
+                ) : (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Usuário</TableHead>
+                        <TableHead>Email</TableHead>
+                        <TableHead>Permissão</TableHead>
+                        <TableHead className="w-12"></TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {users.map((userItem) => (
+                        <TableRow key={userItem.id}>
+                          <TableCell>
+                            <div className="flex items-center gap-3">
+                              <Avatar className="h-8 w-8">
+                                <AvatarImage src={userItem.avatar_url || undefined} />
+                                <AvatarFallback className="text-xs">
+                                  {getInitials(userItem.name)}
+                                </AvatarFallback>
+                              </Avatar>
+                              <span className="font-medium">{userItem.name}</span>
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-muted-foreground">{userItem.email}</TableCell>
+                          <TableCell>
+                            <Select 
+                              value={userItem.role} 
+                              onValueChange={(value) => handleRoleChange(userItem.id, value as AppRole)}
+                              disabled={userItem.id === user?.id || isUpdatingRole}
+                            >
+                              <SelectTrigger className="w-[150px]">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="admin">Administrador</SelectItem>
+                                <SelectItem value="financeiro">Financeiro</SelectItem>
+                                <SelectItem value="visualizacao">Visualização</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </TableCell>
+                          <TableCell>
+                            <Button 
+                              variant="ghost" 
+                              size="icon"
+                              className="text-destructive hover:text-destructive"
+                              disabled={userItem.id === user?.id || userItem.role === 'admin'}
+                              onClick={() => setUserToDelete(userItem)}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                )}
               </CardContent>
             </Card>
           </TabsContent>
@@ -301,6 +371,15 @@ export default function Settings() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      <DeleteConfirmModal
+        open={!!userToDelete}
+        onOpenChange={(open) => !open && setUserToDelete(null)}
+        title="Remover usuário"
+        description={`Tem certeza que deseja remover "${userToDelete?.name}"? Esta ação não pode ser desfeita.`}
+        onConfirm={handleDeleteUser}
+        isLoading={isDeleting}
+      />
     </div>
   );
 }
