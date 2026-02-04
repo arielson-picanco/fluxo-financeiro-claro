@@ -77,17 +77,28 @@ export function AttachmentList({
     const files = e.target.files;
     if (!files || files.length === 0) return;
 
+    const allowedTypes = ['application/pdf', 'image/jpeg', 'image/png', 'image/gif'];
+    const maxSize = 10 * 1024 * 1024; // 10MB
+    
+    let successCount = 0;
+    let errorCount = 0;
+
     for (const file of Array.from(files)) {
       // Validate file type
-      const allowedTypes = ['application/pdf', 'image/jpeg', 'image/png', 'image/gif'];
       if (!allowedTypes.includes(file.type)) {
-        toast.error(`Tipo de arquivo não permitido: ${file.name}`);
+        toast.error(`Tipo não permitido: ${file.name}`, {
+          description: 'Apenas PDF, JPG, PNG e GIF são aceitos.',
+        });
+        errorCount++;
         continue;
       }
 
       // Validate file size (max 10MB)
-      if (file.size > 10 * 1024 * 1024) {
-        toast.error(`Arquivo muito grande: ${file.name} (máximo 10MB)`);
+      if (file.size > maxSize) {
+        toast.error(`Arquivo muito grande: ${file.name}`, {
+          description: `Máximo permitido: 10MB. Tamanho: ${formatFileSize(file.size)}`,
+        });
+        errorCount++;
         continue;
       }
 
@@ -95,10 +106,26 @@ export function AttachmentList({
       const detectedDate = detectDateFromFilename(file.name);
       if (detectedDate && onDateDetected) {
         onDateDetected(detectedDate);
-        toast.info(`Data de vencimento detectada: ${format(detectedDate, 'dd/MM/yyyy')}`);
+        toast.info(`Data detectada: ${format(detectedDate, 'dd/MM/yyyy')}`, {
+          description: `A data de vencimento foi atualizada com base no nome do arquivo "${file.name}".`,
+        });
       }
 
-      await uploadFile(file, recordId);
+      const result = await uploadFile(file, recordId);
+      if (result) {
+        successCount++;
+      } else {
+        errorCount++;
+      }
+    }
+
+    // Summary toast if multiple files
+    if (files.length > 1) {
+      if (errorCount === 0) {
+        toast.success(`${successCount} arquivo(s) enviado(s) com sucesso!`);
+      } else {
+        toast.warning(`Upload parcial: ${successCount} sucesso, ${errorCount} falha(s)`);
+      }
     }
 
     // Reset input

@@ -160,11 +160,15 @@ export function useAccountsPayable() {
 
   const markAsPaidMutation = useMutation({
     mutationFn: async ({ id, paid_amount }: { id: string; paid_amount: number }) => {
+      // Use local date format to avoid timezone issues
+      const now = new Date();
+      const paymentDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+      
       const { data, error } = await supabase
         .from('accounts_payable')
         .update({
           status: 'paga',
-          payment_date: new Date().toISOString().split('T')[0],
+          payment_date: paymentDate,
           paid_amount,
         })
         .eq('id', id)
