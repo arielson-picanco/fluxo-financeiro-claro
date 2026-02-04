@@ -1,96 +1,170 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
-All colors MUST be HSL.
+/* 
+  SISTEMA FINANCEIRO - DESIGN SYSTEM
+  Paleta profissional com foco em clareza e organização financeira
+  Todas as cores em HSL
 */
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
+    /* Base - Branco limpo com cinzas suaves */
+    --background: 220 20% 98%;
+    --foreground: 222 47% 11%;
 
+    /* Cards e superfícies elevadas */
     --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
+    --card-foreground: 222 47% 11%;
 
+    /* Popovers e modais */
     --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
+    --popover-foreground: 222 47% 11%;
 
-    --primary: 222.2 47.4% 11.2%;
-    --primary-foreground: 210 40% 98%;
+    /* Primary - Azul profissional (confiança) */
+    --primary: 221 83% 53%;
+    --primary-foreground: 0 0% 100%;
 
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
+    /* Secondary - Cinza neutro */
+    --secondary: 220 14% 96%;
+    --secondary-foreground: 222 47% 11%;
 
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
+    /* Muted - Para textos secundários */
+    --muted: 220 14% 96%;
+    --muted-foreground: 220 9% 46%;
 
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
+    /* Accent - Azul claro para highlights */
+    --accent: 221 83% 96%;
+    --accent-foreground: 221 83% 40%;
 
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
+    /* Destructive - Vermelho para alertas e vencidos */
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
 
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 222.2 84% 4.9%;
+    /* Borders e inputs */
+    --border: 220 13% 91%;
+    --input: 220 13% 91%;
+    --ring: 221 83% 53%;
 
-    --radius: 0.5rem;
+    /* Radius padrão */
+    --radius: 0.625rem;
 
-    --sidebar-background: 0 0% 98%;
+    /* === CORES SEMÂNTICAS FINANCEIRAS === */
+    
+    /* Sucesso - Verde para pagamentos e valores positivos */
+    --success: 142 71% 45%;
+    --success-foreground: 0 0% 100%;
+    --success-muted: 142 71% 95%;
+    
+    /* Alerta - Âmbar para vencimentos próximos */
+    --warning: 38 92% 50%;
+    --warning-foreground: 38 92% 15%;
+    --warning-muted: 38 92% 95%;
+    
+    /* Info - Azul claro */
+    --info: 199 89% 48%;
+    --info-foreground: 0 0% 100%;
+    --info-muted: 199 89% 95%;
 
-    --sidebar-foreground: 240 5.3% 26.1%;
+    /* Pendente - Roxo para renegociações */
+    --pending: 262 83% 58%;
+    --pending-foreground: 0 0% 100%;
+    --pending-muted: 262 83% 95%;
 
-    --sidebar-primary: 240 5.9% 10%;
+    /* === SIDEBAR === */
+    --sidebar-background: 222 47% 11%;
+    --sidebar-foreground: 220 14% 85%;
+    --sidebar-primary: 221 83% 53%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 222 47% 16%;
+    --sidebar-accent-foreground: 220 14% 95%;
+    --sidebar-border: 222 47% 18%;
+    --sidebar-ring: 221 83% 53%;
+    --sidebar-muted: 220 9% 60%;
 
-    --sidebar-primary-foreground: 0 0% 98%;
-
-    --sidebar-accent: 240 4.8% 95.9%;
-
-    --sidebar-accent-foreground: 240 5.9% 10%;
-
-    --sidebar-border: 220 13% 91%;
-
-    --sidebar-ring: 217.2 91.2% 59.8%;
+    /* === GRADIENTES === */
+    --gradient-primary: linear-gradient(135deg, hsl(221 83% 53%) 0%, hsl(199 89% 48%) 100%);
+    --gradient-success: linear-gradient(135deg, hsl(142 71% 45%) 0%, hsl(142 71% 55%) 100%);
+    --gradient-warning: linear-gradient(135deg, hsl(38 92% 50%) 0%, hsl(25 95% 53%) 100%);
+    --gradient-destructive: linear-gradient(135deg, hsl(0 84% 60%) 0%, hsl(0 84% 50%) 100%);
+    --gradient-hero: linear-gradient(135deg, hsl(222 47% 8%) 0%, hsl(221 83% 25%) 50%, hsl(199 89% 35%) 100%);
+    
+    /* === SOMBRAS === */
+    --shadow-sm: 0 1px 2px 0 hsl(222 47% 11% / 0.05);
+    --shadow-md: 0 4px 6px -1px hsl(222 47% 11% / 0.1), 0 2px 4px -2px hsl(222 47% 11% / 0.1);
+    --shadow-lg: 0 10px 15px -3px hsl(222 47% 11% / 0.1), 0 4px 6px -4px hsl(222 47% 11% / 0.1);
+    --shadow-xl: 0 20px 25px -5px hsl(222 47% 11% / 0.1), 0 8px 10px -6px hsl(222 47% 11% / 0.1);
+    --shadow-glow: 0 0 20px hsl(221 83% 53% / 0.3);
+    --shadow-card: 0 1px 3px 0 hsl(222 47% 11% / 0.06), 0 1px 2px -1px hsl(222 47% 11% / 0.06);
   }
 
   .dark {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
+    /* Base escura */
+    --background: 222 47% 8%;
+    --foreground: 220 14% 95%;
 
-    --card: 222.2 84% 4.9%;
-    --card-foreground: 210 40% 98%;
+    /* Cards escuros */
+    --card: 222 47% 11%;
+    --card-foreground: 220 14% 95%;
 
-    --popover: 222.2 84% 4.9%;
-    --popover-foreground: 210 40% 98%;
+    /* Popovers escuros */
+    --popover: 222 47% 11%;
+    --popover-foreground: 220 14% 95%;
 
-    --primary: 210 40% 98%;
-    --primary-foreground: 222.2 47.4% 11.2%;
+    /* Primary - Azul mais vibrante no escuro */
+    --primary: 221 83% 60%;
+    --primary-foreground: 0 0% 100%;
 
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
+    /* Secondary escuro */
+    --secondary: 222 47% 16%;
+    --secondary-foreground: 220 14% 95%;
 
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
+    /* Muted escuro */
+    --muted: 222 47% 16%;
+    --muted-foreground: 220 9% 60%;
 
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
+    /* Accent escuro */
+    --accent: 222 47% 18%;
+    --accent-foreground: 221 83% 70%;
 
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
+    /* Destructive escuro */
+    --destructive: 0 62% 50%;
+    --destructive-foreground: 0 0% 100%;
 
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 212.7 26.8% 83.9%;
-    --sidebar-background: 240 5.9% 10%;
-    --sidebar-foreground: 240 4.8% 95.9%;
-    --sidebar-primary: 224.3 76.3% 48%;
+    /* Borders escuros */
+    --border: 222 47% 18%;
+    --input: 222 47% 18%;
+    --ring: 221 83% 60%;
+
+    /* Cores semânticas escuras */
+    --success: 142 71% 50%;
+    --success-muted: 142 71% 15%;
+    --warning: 38 92% 55%;
+    --warning-muted: 38 92% 15%;
+    --info: 199 89% 55%;
+    --info-muted: 199 89% 15%;
+    --pending: 262 83% 65%;
+    --pending-muted: 262 83% 15%;
+
+    /* Sidebar escura */
+    --sidebar-background: 222 47% 6%;
+    --sidebar-foreground: 220 14% 85%;
+    --sidebar-primary: 221 83% 60%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 240 3.7% 15.9%;
-    --sidebar-accent-foreground: 240 4.8% 95.9%;
-    --sidebar-border: 240 3.7% 15.9%;
-    --sidebar-ring: 217.2 91.2% 59.8%;
+    --sidebar-accent: 222 47% 12%;
+    --sidebar-accent-foreground: 220 14% 95%;
+    --sidebar-border: 222 47% 14%;
+    --sidebar-ring: 221 83% 60%;
+    --sidebar-muted: 220 9% 50%;
+
+    /* Sombras escuras */
+    --shadow-sm: 0 1px 2px 0 hsl(0 0% 0% / 0.3);
+    --shadow-md: 0 4px 6px -1px hsl(0 0% 0% / 0.4), 0 2px 4px -2px hsl(0 0% 0% / 0.3);
+    --shadow-lg: 0 10px 15px -3px hsl(0 0% 0% / 0.4), 0 4px 6px -4px hsl(0 0% 0% / 0.3);
+    --shadow-card: 0 1px 3px 0 hsl(0 0% 0% / 0.3), 0 1px 2px -1px hsl(0 0% 0% / 0.2);
   }
 }
 
@@ -100,6 +174,114 @@ All colors MUST be HSL.
   }
 
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground antialiased;
+    font-family: 'Inter', system-ui, sans-serif;
+  }
+
+  /* Tipografia para números e valores monetários */
+  .font-mono {
+    font-family: 'JetBrains Mono', monospace;
+  }
+}
+
+@layer components {
+  /* Cards com hover sutil */
+  .card-hover {
+    @apply transition-all duration-200 hover:shadow-lg hover:-translate-y-0.5;
+  }
+
+  /* Badge de status */
+  .status-badge {
+    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
+  }
+
+  /* Status específicos */
+  .status-a_vencer {
+    @apply bg-info-muted text-info;
+  }
+  .status-vencida {
+    @apply bg-destructive/10 text-destructive font-semibold animate-pulse;
+  }
+  .status-paga {
+    @apply bg-success-muted text-success;
+  }
+  .status-renegociada {
+    @apply bg-pending-muted text-pending;
+  }
+
+  /* Tabela financeira */
+  .financial-table {
+    @apply w-full text-sm;
+  }
+  .financial-table th {
+    @apply text-left font-medium text-muted-foreground p-3 border-b;
+  }
+  .financial-table td {
+    @apply p-3 border-b border-border/50;
+  }
+  .financial-table tr:hover {
+    @apply bg-muted/30;
+  }
+
+  /* Valores monetários */
+  .money-positive {
+    @apply text-success font-medium font-mono;
+  }
+  .money-negative {
+    @apply text-destructive font-medium font-mono;
+  }
+  .money-neutral {
+    @apply text-foreground font-medium font-mono;
+  }
+
+  /* Animação de alerta */
+  @keyframes alert-pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.7; }
+  }
+  .alert-urgent {
+    animation: alert-pulse 2s ease-in-out infinite;
+  }
+}
+
+@layer utilities {
+  /* Gradientes como utilitários */
+  .bg-gradient-primary {
+    background: var(--gradient-primary);
+  }
+  .bg-gradient-success {
+    background: var(--gradient-success);
+  }
+  .bg-gradient-warning {
+    background: var(--gradient-warning);
+  }
+  .bg-gradient-destructive {
+    background: var(--gradient-destructive);
+  }
+  .bg-gradient-hero {
+    background: var(--gradient-hero);
+  }
+
+  /* Sombras */
+  .shadow-card {
+    box-shadow: var(--shadow-card);
+  }
+  .shadow-glow {
+    box-shadow: var(--shadow-glow);
+  }
+
+  /* Scrollbar customizada */
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  .scrollbar-thin::-webkit-scrollbar-track {
+    @apply bg-transparent;
+  }
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    @apply bg-border rounded-full;
+  }
+  .scrollbar-thin::-webkit-scrollbar-thumb:hover {
+    @apply bg-muted-foreground/30;
   }
 }
