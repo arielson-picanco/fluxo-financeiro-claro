@@ -14,6 +14,7 @@ import AccountsReceivable from "@/pages/AccountsReceivable";
 import Suppliers from "@/pages/Suppliers";
 import Reports from "@/pages/Reports";
 import Settings from "@/pages/Settings";
+import Logs from "@/pages/Logs";
 import NotFound from "@/pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -113,6 +114,14 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <Settings />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/logs"
+        element={
+          <ProtectedRoute>
+            <Logs />
           </ProtectedRoute>
         }
       />
