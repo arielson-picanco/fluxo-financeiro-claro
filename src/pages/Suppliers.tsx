@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Plus, Search, MoreHorizontal, Building2, Phone, Mail, MapPin } from "lucide-react";
+import { Plus, Search, MoreHorizontal, Building2, Phone, Mail, MapPin, Eye } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -12,16 +12,18 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Skeleton } from "@/components/ui/skeleton";
 import { SupplierModal } from "@/components/modals/SupplierModal";
+import { SupplierDetailModal } from "@/components/modals/SupplierDetailModal";
 import { DeleteConfirmModal } from "@/components/modals/DeleteConfirmModal";
 import { useSuppliers, Supplier, SupplierInsert } from "@/hooks/useSuppliers";
-import { formatCurrency } from "@/lib/supabase";
 import { useAuth } from "@/hooks/useAuth";
 
 export default function Suppliers() {
   const [searchQuery, setSearchQuery] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [selectedSupplier, setSelectedSupplier] = useState<Supplier | null>(null);
+  const [supplierToView, setSupplierToView] = useState<Supplier | null>(null);
   const [supplierToDelete, setSupplierToDelete] = useState<Supplier | null>(null);
   
   const { canWrite, isAdmin } = useAuth();
@@ -50,6 +52,11 @@ export default function Suppliers() {
   const handleOpenEdit = (supplier: Supplier) => {
     setSelectedSupplier(supplier);
     setIsModalOpen(true);
+  };
+
+  const handleOpenView = (supplier: Supplier) => {
+    setSupplierToView(supplier);
+    setIsDetailModalOpen(true);
   };
 
   const handleOpenDelete = (supplier: Supplier) => {
@@ -137,7 +144,11 @@ export default function Suppliers() {
           {/* Suppliers Grid */}
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             {filteredSuppliers.map((supplier) => (
-              <Card key={supplier.id} className="card-hover">
+              <Card 
+                key={supplier.id} 
+                className="card-hover cursor-pointer"
+                onClick={() => handleOpenView(supplier)}
+              >
                 <CardHeader className="pb-3">
                   <div className="flex items-start justify-between">
                     <div className="flex items-center gap-3">
@@ -155,19 +166,32 @@ export default function Suppliers() {
                     </div>
                     {canWrite && (
                       <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
+                        <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
                           <Button variant="ghost" size="icon" className="h-8 w-8">
                             <MoreHorizontal className="h-4 w-4" />
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => handleOpenEdit(supplier)}>
+                          <DropdownMenuItem onClick={(e) => {
+                            e.stopPropagation();
+                            handleOpenView(supplier);
+                          }}>
+                            <Eye className="h-4 w-4 mr-2" />
+                            Ver detalhes
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={(e) => {
+                            e.stopPropagation();
+                            handleOpenEdit(supplier);
+                          }}>
                             Editar
                           </DropdownMenuItem>
                           {isAdmin && (
                             <DropdownMenuItem 
                               className="text-destructive"
-                              onClick={() => handleOpenDelete(supplier)}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleOpenDelete(supplier);
+                              }}
                             >
                               Excluir
                             </DropdownMenuItem>
@@ -240,6 +264,12 @@ export default function Suppliers() {
         supplier={selectedSupplier}
         onSubmit={handleSubmit}
         isLoading={isCreating || isUpdating}
+      />
+
+      <SupplierDetailModal
+        open={isDetailModalOpen}
+        onOpenChange={setIsDetailModalOpen}
+        supplier={supplierToView}
       />
 
       <DeleteConfirmModal
