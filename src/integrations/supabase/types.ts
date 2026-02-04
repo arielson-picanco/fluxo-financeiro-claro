@@ -39,6 +39,7 @@ export type Database = {
           renegotiated_by: string | null
           status: Database["public"]["Enums"]["account_status"]
           supplier_id: string
+          tags: string[] | null
           total_installments: number | null
           updated_at: string
         }
@@ -66,6 +67,7 @@ export type Database = {
           renegotiated_by?: string | null
           status?: Database["public"]["Enums"]["account_status"]
           supplier_id: string
+          tags?: string[] | null
           total_installments?: number | null
           updated_at?: string
         }
@@ -93,6 +95,7 @@ export type Database = {
           renegotiated_by?: string | null
           status?: Database["public"]["Enums"]["account_status"]
           supplier_id?: string
+          tags?: string[] | null
           total_installments?: number | null
           updated_at?: string
         }
@@ -139,6 +142,7 @@ export type Database = {
           renegotiated_at: string | null
           renegotiated_by: string | null
           status: Database["public"]["Enums"]["account_status"]
+          tags: string[] | null
           total_installments: number | null
           updated_at: string
         }
@@ -167,6 +171,7 @@ export type Database = {
           renegotiated_at?: string | null
           renegotiated_by?: string | null
           status?: Database["public"]["Enums"]["account_status"]
+          tags?: string[] | null
           total_installments?: number | null
           updated_at?: string
         }
@@ -195,6 +200,7 @@ export type Database = {
           renegotiated_at?: string | null
           renegotiated_by?: string | null
           status?: Database["public"]["Enums"]["account_status"]
+          tags?: string[] | null
           total_installments?: number | null
           updated_at?: string
         }
@@ -320,6 +326,7 @@ export type Database = {
           city: string | null
           created_at: string
           created_by: string | null
+          default_boleto_url: string | null
           document: string | null
           document_type: string | null
           email: string | null
@@ -329,6 +336,7 @@ export type Database = {
           notes: string | null
           phone: string | null
           state: string | null
+          tags: string[] | null
           updated_at: string
         }
         Insert: {
@@ -337,6 +345,7 @@ export type Database = {
           city?: string | null
           created_at?: string
           created_by?: string | null
+          default_boleto_url?: string | null
           document?: string | null
           document_type?: string | null
           email?: string | null
@@ -346,6 +355,7 @@ export type Database = {
           notes?: string | null
           phone?: string | null
           state?: string | null
+          tags?: string[] | null
           updated_at?: string
         }
         Update: {
@@ -354,6 +364,7 @@ export type Database = {
           city?: string | null
           created_at?: string
           created_by?: string | null
+          default_boleto_url?: string | null
           document?: string | null
           document_type?: string | null
           email?: string | null
@@ -363,6 +374,7 @@ export type Database = {
           notes?: string | null
           phone?: string | null
           state?: string | null
+          tags?: string[] | null
           updated_at?: string
         }
         Relationships: []
@@ -400,6 +412,30 @@ export type Database = {
           status?: string
           user_id?: string | null
           user_name?: string | null
+        }
+        Relationships: []
+      }
+      tags: {
+        Row: {
+          color: string
+          created_at: string
+          entity_type: string
+          id: string
+          name: string
+        }
+        Insert: {
+          color?: string
+          created_at?: string
+          entity_type?: string
+          id?: string
+          name: string
+        }
+        Update: {
+          color?: string
+          created_at?: string
+          entity_type?: string
+          id?: string
+          name?: string
         }
         Relationships: []
       }

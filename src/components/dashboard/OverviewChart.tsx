@@ -9,16 +9,28 @@ import {
 } from "recharts";
 import { formatCurrency } from "@/lib/supabase";
 
-const mockData = [
-  { month: "Jan", receitas: 45000, despesas: 32000 },
-  { month: "Fev", receitas: 52000, despesas: 38000 },
-  { month: "Mar", receitas: 48000, despesas: 35000 },
-  { month: "Abr", receitas: 61000, despesas: 42000 },
-  { month: "Mai", receitas: 55000, despesas: 39000 },
-  { month: "Jun", receitas: 67000, despesas: 45000 },
+interface ChartData {
+  month: string;
+  receitas: number;
+  despesas: number;
+}
+
+interface OverviewChartProps {
+  data?: ChartData[];
+}
+
+const defaultData: ChartData[] = [
+  { month: "Jan", receitas: 0, despesas: 0 },
+  { month: "Fev", receitas: 0, despesas: 0 },
+  { month: "Mar", receitas: 0, despesas: 0 },
+  { month: "Abr", receitas: 0, despesas: 0 },
+  { month: "Mai", receitas: 0, despesas: 0 },
+  { month: "Jun", receitas: 0, despesas: 0 },
 ];
 
-export function OverviewChart() {
+export function OverviewChart({ data = defaultData }: OverviewChartProps) {
+  const chartData = data.length > 0 ? data : defaultData;
+  
   return (
     <Card className="col-span-full lg:col-span-2">
       <CardHeader>
@@ -27,7 +39,7 @@ export function OverviewChart() {
       <CardContent>
         <div className="h-[300px]">
           <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={mockData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+            <AreaChart data={chartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
               <defs>
                 <linearGradient id="receitas" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="5%" stopColor="hsl(142 71% 45%)" stopOpacity={0.3} />

@@ -1,6 +1,8 @@
+import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
+import { Upload, FileText, X, ExternalLink } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -25,8 +27,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { TagInput } from "@/components/ui/tag-input";
 import { AccountPayable, AccountPayableInsert } from "@/hooks/useAccountsPayable";
-import { useSuppliers } from "@/hooks/useSuppliers";
+import { useSuppliers, Supplier } from "@/hooks/useSuppliers";
+import { useTags } from "@/hooks/useTags";
+import { useFileUpload } from "@/hooks/useFileUpload";
+import { toast } from "sonner";
 
 const accountSchema = z.object({
   description: z.string().min(2, "Descrição é obrigatória"),
@@ -41,6 +47,7 @@ const accountSchema = z.object({
   fine_rate: z.coerce.number().optional(),
   is_recurring: z.boolean().default(false),
   recurrence_type: z.string().optional(),
+  tags: z.array(z.string()).default([]),
 });
 
 type AccountFormData = z.infer<typeof accountSchema>;
@@ -62,27 +69,115 @@ export function AccountPayableModal({
 }: AccountPayableModalProps) {
   const isEditing = !!account;
   const { suppliers } = useSuppliers();
+  const { tags } = useTags('payable');
+  const { uploadFile, isUploading } = useFileUpload('payable', account?.id);
+  const [boletoFile, setBoletoFile] = useState<File | null>(null);
+  const [supplierBoletoUrl, setSupplierBoletoUrl] = useState<string | null>(null);
 
   const form = useForm<AccountFormData>({
     resolver: zodResolver(accountSchema),
     defaultValues: {
-      description: account?.description || "",
-      supplier_id: account?.supplier_id || "",
-      amount: account?.amount || 0,
-      due_date: account?.due_date || "",
-      category: account?.category || "",
-      notes: account?.notes || "",
-      installment_number: account?.installment_number || 1,
-      total_installments: account?.total_installments || 1,
-      interest_rate: account?.interest_rate || 0,
-      fine_rate: account?.fine_rate || 0,
-      is_recurring: account?.is_recurring || false,
-      recurrence_type: account?.recurrence_type || "",
+      description: "",
+      supplier_id: "",
+      amount: 0,
+      due_date: "",
+      category: "",
+      notes: "",
+      installment_number: 1,
+      total_installments: 1,
+      interest_rate: 0,
+      fine_rate: 0,
+      is_recurring: false,
+      recurrence_type: "",
+      tags: [],
     },
   });
 
-  const handleSubmit = (data: AccountFormData) => {
-    const submitData: AccountPayableInsert = {
+  // Reset form when account changes
+  useEffect(() => {
+    if (account) {
+      form.reset({
+        description: account.description || "",
+        supplier_id: account.supplier_id || "",
+        amount: account.amount || 0,
+        due_date: account.due_date || "",
+        category: account.category || "",
+        notes: account.notes || "",
+        installment_number: account.installment_number || 1,
+        total_installments: account.total_installments || 1,
+        interest_rate: account.interest_rate || 0,
+        fine_rate: account.fine_rate || 0,
+        is_recurring: account.is_recurring || false,
+        recurrence_type: account.recurrence_type || "",
+        tags: (account as any).tags || [],
+      });
+    } else {
+      form.reset({
+        description: "",
+        supplier_id: "",
+        amount: 0,
+        due_date: "",
+        category: "",
+        notes: "",
+        installment_number: 1,
+        total_installments: 1,
+        interest_rate: 0,
+        fine_rate: 0,
+        is_recurring: false,
+        recurrence_type: "",
+        tags: [],
+      });
+    }
+    setBoletoFile(null);
+    setSupplierBoletoUrl(null);
+  }, [account, form]);
+
+  // Watch supplier changes to get default boleto
+  const selectedSupplierId = form.watch("supplier_id");
+
+  useEffect(() => {
+    if (selectedSupplierId) {
+      const selectedSupplier = suppliers.find(s => s.id === selectedSupplierId) as Supplier & { default_boleto_url?: string };
+      if (selectedSupplier?.default_boleto_url && !boletoFile) {
+        setSupplierBoletoUrl(selectedSupplier.default_boleto_url);
+      }
+    } else {
+      setSupplierBoletoUrl(null);
+    }
+  }, [selectedSupplierId, suppliers, boletoFile]);
+
+  const handleBoletoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.type !== 'application/pdf') {
+        toast.error('Apenas arquivos PDF são permitidos');
+        return;
+      }
+      if (file.size > 10 * 1024 * 1024) {
+        toast.error('Arquivo muito grande (máximo 10MB)');
+        return;
+      }
+      setBoletoFile(file);
+      setSupplierBoletoUrl(null); // Override supplier boleto
+    }
+  };
+
+  const handleRemoveBoleto = () => {
+    setBoletoFile(null);
+    // Re-check if supplier has default boleto
+    const selectedSupplier = suppliers.find(s => s.id === selectedSupplierId) as Supplier & { default_boleto_url?: string };
+    if (selectedSupplier?.default_boleto_url) {
+      setSupplierBoletoUrl(selectedSupplier.default_boleto_url);
+    }
+  };
+
+  const handleSubmit = async (data: AccountFormData) => {
+    // If editing and has new boleto, upload it
+    if (boletoFile && isEditing && account) {
+      await uploadFile(boletoFile, account.id);
+    }
+
+    const submitData: AccountPayableInsert & { tags?: string[] } = {
       description: data.description,
       supplier_id: data.supplier_id,
       amount: data.amount,
@@ -95,12 +190,13 @@ export function AccountPayableModal({
       fine_rate: data.fine_rate || null,
       is_recurring: data.is_recurring || null,
       recurrence_type: data.recurrence_type || null,
+      tags: data.tags,
     };
 
     if (isEditing && account) {
-      onSubmit({ ...submitData, id: account.id });
+      onSubmit({ ...submitData, id: account.id } as any);
     } else {
-      onSubmit(submitData);
+      onSubmit(submitData as any);
     }
   };
 
@@ -268,6 +364,84 @@ export function AccountPayableModal({
                 )}
               />
 
+              {/* Tags */}
+              <FormField
+                control={form.control}
+                name="tags"
+                render={({ field }) => (
+                  <FormItem className="md:col-span-2">
+                    <FormLabel>Etiquetas</FormLabel>
+                    <FormControl>
+                      <TagInput
+                        availableTags={tags}
+                        selectedTags={field.value}
+                        onTagsChange={field.onChange}
+                        placeholder="Adicionar etiqueta..."
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              {/* Boleto Upload */}
+              <div className="md:col-span-2">
+                <FormLabel>Boleto (PDF)</FormLabel>
+                <div className="mt-2">
+                  {boletoFile ? (
+                    <div className="flex items-center gap-2 p-3 border rounded-md bg-muted/50">
+                      <FileText className="h-5 w-5 text-primary" />
+                      <span className="flex-1 text-sm truncate">{boletoFile.name}</span>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        onClick={handleRemoveBoleto}
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ) : supplierBoletoUrl ? (
+                    <div className="flex items-center gap-2 p-3 border rounded-md bg-muted/50">
+                      <FileText className="h-5 w-5 text-primary" />
+                      <span className="flex-1 text-sm">Boleto do fornecedor (padrão)</span>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => window.open(supplierBoletoUrl, '_blank')}
+                      >
+                        <ExternalLink className="h-4 w-4" />
+                      </Button>
+                      <label className="cursor-pointer">
+                        <Button type="button" variant="outline" size="sm" asChild>
+                          <span>Substituir</span>
+                        </Button>
+                        <input
+                          type="file"
+                          accept=".pdf"
+                          className="hidden"
+                          onChange={handleBoletoUpload}
+                        />
+                      </label>
+                    </div>
+                  ) : (
+                    <label className="flex items-center justify-center gap-2 p-4 border-2 border-dashed rounded-md cursor-pointer hover:bg-muted/50 transition-colors">
+                      <Upload className="h-5 w-5 text-muted-foreground" />
+                      <span className="text-sm text-muted-foreground">
+                        Clique para anexar PDF
+                      </span>
+                      <input
+                        type="file"
+                        accept=".pdf"
+                        className="hidden"
+                        onChange={handleBoletoUpload}
+                      />
+                    </label>
+                  )}
+                </div>
+              </div>
+
               <FormField
                 control={form.control}
                 name="notes"
@@ -295,8 +469,8 @@ export function AccountPayableModal({
               >
                 Cancelar
               </Button>
-              <Button type="submit" disabled={isLoading}>
-                {isLoading ? "Salvando..." : isEditing ? "Salvar" : "Cadastrar"}
+              <Button type="submit" disabled={isLoading || isUploading}>
+                {isLoading || isUploading ? "Salvando..." : isEditing ? "Salvar" : "Cadastrar"}
               </Button>
             </div>
           </form>
