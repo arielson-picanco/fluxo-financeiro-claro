@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Plus, Search, MoreHorizontal, Building2, Phone, Mail, MapPin } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,96 +10,83 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-
-interface Supplier {
-  id: string;
-  name: string;
-  document: string;
-  document_type: 'cpf' | 'cnpj';
-  category: string;
-  email: string;
-  phone: string;
-  city: string;
-  state: string;
-  is_active: boolean;
-  total_payable: number;
-  total_paid: number;
-}
-
-const mockSuppliers: Supplier[] = [
-  {
-    id: '1',
-    name: 'ABC Móveis Ltda',
-    document: '12.345.678/0001-90',
-    document_type: 'cnpj',
-    category: 'Móveis',
-    email: 'contato@abcmoveis.com',
-    phone: '(11) 99999-9999',
-    city: 'São Paulo',
-    state: 'SP',
-    is_active: true,
-    total_payable: 45000,
-    total_paid: 120000,
-  },
-  {
-    id: '2',
-    name: 'Eletros Plus',
-    document: '98.765.432/0001-10',
-    document_type: 'cnpj',
-    category: 'Eletrodomésticos',
-    email: 'vendas@eletrosplus.com',
-    phone: '(11) 88888-8888',
-    city: 'Campinas',
-    state: 'SP',
-    is_active: true,
-    total_payable: 28500,
-    total_paid: 85000,
-  },
-  {
-    id: '3',
-    name: 'Transportadora Veloz',
-    document: '11.222.333/0001-44',
-    document_type: 'cnpj',
-    category: 'Transporte',
-    email: 'logistica@veloz.com',
-    phone: '(11) 77777-7777',
-    city: 'Guarulhos',
-    state: 'SP',
-    is_active: true,
-    total_payable: 5200,
-    total_paid: 42000,
-  },
-  {
-    id: '4',
-    name: 'Colchões Sonho Bom',
-    document: '55.666.777/0001-88',
-    document_type: 'cnpj',
-    category: 'Colchões',
-    email: 'comercial@sonhobom.com',
-    phone: '(11) 66666-6666',
-    city: 'Osasco',
-    state: 'SP',
-    is_active: false,
-    total_payable: 0,
-    total_paid: 65000,
-  },
-];
-
-function formatCurrency(value: number): string {
-  return new Intl.NumberFormat('pt-BR', {
-    style: 'currency',
-    currency: 'BRL',
-  }).format(value);
-}
+import { Skeleton } from "@/components/ui/skeleton";
+import { SupplierModal } from "@/components/modals/SupplierModal";
+import { DeleteConfirmModal } from "@/components/modals/DeleteConfirmModal";
+import { useSuppliers, Supplier, SupplierInsert } from "@/hooks/useSuppliers";
+import { formatCurrency } from "@/lib/supabase";
+import { useAuth } from "@/hooks/useAuth";
 
 export default function Suppliers() {
   const [searchQuery, setSearchQuery] = useState("");
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [selectedSupplier, setSelectedSupplier] = useState<Supplier | null>(null);
+  const [supplierToDelete, setSupplierToDelete] = useState<Supplier | null>(null);
+  
+  const { canWrite, isAdmin } = useAuth();
+  const { 
+    suppliers, 
+    isLoading, 
+    createSupplier, 
+    updateSupplier, 
+    deleteSupplier,
+    isCreating,
+    isUpdating,
+    isDeleting,
+  } = useSuppliers();
 
-  const filteredSuppliers = mockSuppliers.filter(s =>
+  const filteredSuppliers = suppliers.filter(s =>
     s.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    s.document.includes(searchQuery) ||
-    s.category.toLowerCase().includes(searchQuery.toLowerCase())
+    (s.document && s.document.includes(searchQuery)) ||
+    (s.category && s.category.toLowerCase().includes(searchQuery.toLowerCase()))
   );
+
+  const handleOpenCreate = () => {
+    setSelectedSupplier(null);
+    setIsModalOpen(true);
+  };
+
+  const handleOpenEdit = (supplier: Supplier) => {
+    setSelectedSupplier(supplier);
+    setIsModalOpen(true);
+  };
+
+  const handleOpenDelete = (supplier: Supplier) => {
+    setSupplierToDelete(supplier);
+    setIsDeleteModalOpen(true);
+  };
+
+  const handleSubmit = (data: SupplierInsert | (SupplierInsert & { id: string })) => {
+    if ('id' in data) {
+      const { id, ...updates } = data;
+      updateSupplier({ id, ...updates }, {
+        onSuccess: () => setIsModalOpen(false),
+      });
+    } else {
+      createSupplier(data, {
+        onSuccess: () => setIsModalOpen(false),
+      });
+    }
+  };
+
+  const handleConfirmDelete = () => {
+    if (supplierToDelete) {
+      deleteSupplier(supplierToDelete.id, {
+        onSuccess: () => {
+          setIsDeleteModalOpen(false);
+          setSupplierToDelete(null);
+        },
+      });
+    }
+  };
+
+  // Reset modal form when closing
+  useEffect(() => {
+    if (!isModalOpen) {
+      setSelectedSupplier(null);
+    }
+  }, [isModalOpen]);
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -111,10 +98,12 @@ export default function Suppliers() {
             Gerencie seus fornecedores e parceiros comerciais
           </p>
         </div>
-        <Button size="sm">
-          <Plus className="h-4 w-4 mr-2" />
-          Novo Fornecedor
-        </Button>
+        {canWrite && (
+          <Button size="sm" onClick={handleOpenCreate}>
+            <Plus className="h-4 w-4 mr-2" />
+            Novo Fornecedor
+          </Button>
+        )}
       </div>
 
       {/* Search */}
@@ -129,93 +118,133 @@ export default function Suppliers() {
         />
       </div>
 
-      {/* Suppliers Grid */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {filteredSuppliers.map((supplier) => (
-          <Card key={supplier.id} className="card-hover">
-            <CardHeader className="pb-3">
-              <div className="flex items-start justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                    <Building2 className="h-5 w-5 text-primary" />
-                  </div>
-                  <div>
-                    <CardTitle className="text-base font-semibold">
-                      {supplier.name}
-                    </CardTitle>
-                    <p className="text-xs text-muted-foreground font-mono">
-                      {supplier.document}
-                    </p>
-                  </div>
-                </div>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="icon" className="h-8 w-8">
-                      <MoreHorizontal className="h-4 w-4" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    <DropdownMenuItem>Ver detalhes</DropdownMenuItem>
-                    <DropdownMenuItem>Editar</DropdownMenuItem>
-                    <DropdownMenuItem>Ver contas</DropdownMenuItem>
-                    <DropdownMenuItem className="text-destructive">
-                      Desativar
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-center gap-2">
-                <Badge variant={supplier.is_active ? "default" : "secondary"}>
-                  {supplier.is_active ? "Ativo" : "Inativo"}
-                </Badge>
-                <Badge variant="outline">{supplier.category}</Badge>
-              </div>
-
-              <div className="space-y-2 text-sm">
-                <div className="flex items-center gap-2 text-muted-foreground">
-                  <Mail className="h-4 w-4" />
-                  <span className="truncate">{supplier.email}</span>
-                </div>
-                <div className="flex items-center gap-2 text-muted-foreground">
-                  <Phone className="h-4 w-4" />
-                  <span>{supplier.phone}</span>
-                </div>
-                <div className="flex items-center gap-2 text-muted-foreground">
-                  <MapPin className="h-4 w-4" />
-                  <span>{supplier.city}, {supplier.state}</span>
-                </div>
-              </div>
-
-              <div className="pt-3 border-t grid grid-cols-2 gap-4">
-                <div>
-                  <p className="text-xs text-muted-foreground">A Pagar</p>
-                  <p className="text-sm font-semibold font-mono text-destructive">
-                    {formatCurrency(supplier.total_payable)}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground">Total Pago</p>
-                  <p className="text-sm font-semibold font-mono text-success">
-                    {formatCurrency(supplier.total_paid)}
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-
-      {filteredSuppliers.length === 0 && (
-        <div className="text-center py-12">
-          <Building2 className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-          <h3 className="text-lg font-medium">Nenhum fornecedor encontrado</h3>
-          <p className="text-muted-foreground">
-            Tente ajustar os filtros de busca
-          </p>
+      {/* Loading State */}
+      {isLoading ? (
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          {[...Array(6)].map((_, i) => (
+            <Card key={i}>
+              <CardHeader>
+                <Skeleton className="h-12 w-full" />
+              </CardHeader>
+              <CardContent>
+                <Skeleton className="h-24 w-full" />
+              </CardContent>
+            </Card>
+          ))}
         </div>
+      ) : (
+        <>
+          {/* Suppliers Grid */}
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            {filteredSuppliers.map((supplier) => (
+              <Card key={supplier.id} className="card-hover">
+                <CardHeader className="pb-3">
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                        <Building2 className="h-5 w-5 text-primary" />
+                      </div>
+                      <div>
+                        <CardTitle className="text-base font-semibold">
+                          {supplier.name}
+                        </CardTitle>
+                        <p className="text-xs text-muted-foreground font-mono">
+                          {supplier.document || "Sem documento"}
+                        </p>
+                      </div>
+                    </div>
+                    {canWrite && (
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon" className="h-8 w-8">
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => handleOpenEdit(supplier)}>
+                            Editar
+                          </DropdownMenuItem>
+                          {isAdmin && (
+                            <DropdownMenuItem 
+                              className="text-destructive"
+                              onClick={() => handleOpenDelete(supplier)}
+                            >
+                              Excluir
+                            </DropdownMenuItem>
+                          )}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    )}
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="flex items-center gap-2">
+                    <Badge variant={supplier.is_active ? "default" : "secondary"}>
+                      {supplier.is_active ? "Ativo" : "Inativo"}
+                    </Badge>
+                    {supplier.category && (
+                      <Badge variant="outline">{supplier.category}</Badge>
+                    )}
+                  </div>
+
+                  <div className="space-y-2 text-sm">
+                    {supplier.email && (
+                      <div className="flex items-center gap-2 text-muted-foreground">
+                        <Mail className="h-4 w-4" />
+                        <span className="truncate">{supplier.email}</span>
+                      </div>
+                    )}
+                    {supplier.phone && (
+                      <div className="flex items-center gap-2 text-muted-foreground">
+                        <Phone className="h-4 w-4" />
+                        <span>{supplier.phone}</span>
+                      </div>
+                    )}
+                    {(supplier.city || supplier.state) && (
+                      <div className="flex items-center gap-2 text-muted-foreground">
+                        <MapPin className="h-4 w-4" />
+                        <span>{[supplier.city, supplier.state].filter(Boolean).join(', ')}</span>
+                      </div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+
+          {filteredSuppliers.length === 0 && (
+            <div className="text-center py-12">
+              <Building2 className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+              <h3 className="text-lg font-medium">Nenhum fornecedor encontrado</h3>
+              <p className="text-muted-foreground">
+                {suppliers.length === 0 
+                  ? "Comece cadastrando seu primeiro fornecedor"
+                  : "Tente ajustar os filtros de busca"
+                }
+              </p>
+            </div>
+          )}
+        </>
       )}
+
+      {/* Modals */}
+      <SupplierModal
+        key={selectedSupplier?.id || 'new'}
+        open={isModalOpen}
+        onOpenChange={setIsModalOpen}
+        supplier={selectedSupplier}
+        onSubmit={handleSubmit}
+        isLoading={isCreating || isUpdating}
+      />
+
+      <DeleteConfirmModal
+        open={isDeleteModalOpen}
+        onOpenChange={setIsDeleteModalOpen}
+        title="Excluir fornecedor"
+        description={`Tem certeza que deseja excluir o fornecedor "${supplierToDelete?.name}"? Esta ação não pode ser desfeita.`}
+        onConfirm={handleConfirmDelete}
+        isLoading={isDeleting}
+      />
     </div>
   );
 }

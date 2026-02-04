@@ -1,11 +1,11 @@
-import { useState } from "react";
-import { Plus, Filter, Download } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Plus, Filter, Download, Eye, Pencil, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { AccountsTable } from "@/components/dashboard/AccountsTable";
 import { StatCard } from "@/components/dashboard/StatCard";
-import { formatCurrency, type AccountStatus } from "@/lib/supabase";
+import { formatCurrency, formatDate } from "@/lib/supabase";
 import { ArrowUpCircle, AlertTriangle, Clock, CheckCircle } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import {
   Select,
   SelectContent,
@@ -13,28 +13,99 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Skeleton } from "@/components/ui/skeleton";
+import { AccountReceivableModal } from "@/components/modals/AccountReceivableModal";
+import { DeleteConfirmModal } from "@/components/modals/DeleteConfirmModal";
+import { useAccountsReceivable, AccountReceivable, AccountReceivableInsert } from "@/hooks/useAccountsReceivable";
+import { useAuth } from "@/hooks/useAuth";
 
-// Mock data
-const mockReceivables = [
-  { id: '1', description: 'Venda Móveis - Sala Completa', customer_name: 'João Silva', amount: 12500, due_date: '2024-02-10', status: 'a_vencer' as AccountStatus },
-  { id: '2', description: 'Serviço de Entrega', customer_name: 'Maria Santos', amount: 350, due_date: '2024-02-01', status: 'paga' as AccountStatus },
-  { id: '3', description: 'Financiamento Parcela 3/12', customer_name: 'Pedro Oliveira', amount: 2200, due_date: '2024-01-25', status: 'vencida' as AccountStatus },
-  { id: '4', description: 'Venda Eletrodomésticos', customer_name: 'Ana Costa', amount: 8900, due_date: '2024-02-15', status: 'a_vencer' as AccountStatus },
-  { id: '5', description: 'Conserto Garantia Estendida', customer_name: 'Carlos Lima', amount: 450, due_date: '2024-01-28', status: 'renegociada' as AccountStatus },
-  { id: '6', description: 'Venda Colchão Premium', customer_name: 'Fernanda Reis', amount: 3200, due_date: '2024-02-08', status: 'a_vencer' as AccountStatus },
-];
+const statusConfig = {
+  a_vencer: { label: "A Receber", variant: "outline" as const, className: "border-primary text-primary" },
+  vencida: { label: "Em Atraso", variant: "destructive" as const, className: "" },
+  paga: { label: "Recebida", variant: "outline" as const, className: "border-success text-success" },
+  renegociada: { label: "Renegociada", variant: "secondary" as const, className: "" },
+};
 
 export default function AccountsReceivable() {
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [selectedAccount, setSelectedAccount] = useState<AccountReceivable | null>(null);
+  const [accountToDelete, setAccountToDelete] = useState<AccountReceivable | null>(null);
+
+  const { canWrite, isAdmin } = useAuth();
+  const { 
+    accounts, 
+    isLoading, 
+    createAccount, 
+    updateAccount, 
+    deleteAccount,
+    isCreating,
+    isUpdating,
+    isDeleting,
+  } = useAccountsReceivable();
 
   const filteredAccounts = statusFilter === "all" 
-    ? mockReceivables 
-    : mockReceivables.filter(a => a.status === statusFilter);
+    ? accounts 
+    : accounts.filter(a => a.status === statusFilter);
 
-  const totalAmount = mockReceivables.reduce((sum, a) => sum + a.amount, 0);
-  const overdueAmount = mockReceivables.filter(a => a.status === 'vencida').reduce((sum, a) => sum + a.amount, 0);
-  const pendingAmount = mockReceivables.filter(a => a.status === 'a_vencer').reduce((sum, a) => sum + a.amount, 0);
-  const receivedAmount = mockReceivables.filter(a => a.status === 'paga').reduce((sum, a) => sum + a.amount, 0);
+  const totalAmount = accounts.reduce((sum, a) => sum + a.amount, 0);
+  const overdueAmount = accounts.filter(a => a.status === 'vencida').reduce((sum, a) => sum + a.amount, 0);
+  const pendingAmount = accounts.filter(a => a.status === 'a_vencer').reduce((sum, a) => sum + a.amount, 0);
+  const receivedAmount = accounts.filter(a => a.status === 'paga').reduce((sum, a) => sum + a.amount, 0);
+
+  const handleOpenCreate = () => {
+    setSelectedAccount(null);
+    setIsModalOpen(true);
+  };
+
+  const handleOpenEdit = (account: AccountReceivable) => {
+    setSelectedAccount(account);
+    setIsModalOpen(true);
+  };
+
+  const handleOpenDelete = (account: AccountReceivable) => {
+    setAccountToDelete(account);
+    setIsDeleteModalOpen(true);
+  };
+
+  const handleSubmit = (data: AccountReceivableInsert | (AccountReceivableInsert & { id: string })) => {
+    if ('id' in data) {
+      const { id, ...updates } = data;
+      updateAccount({ id, ...updates }, {
+        onSuccess: () => setIsModalOpen(false),
+      });
+    } else {
+      createAccount(data, {
+        onSuccess: () => setIsModalOpen(false),
+      });
+    }
+  };
+
+  const handleConfirmDelete = () => {
+    if (accountToDelete) {
+      deleteAccount(accountToDelete.id, {
+        onSuccess: () => {
+          setIsDeleteModalOpen(false);
+          setAccountToDelete(null);
+        },
+      });
+    }
+  };
+
+  useEffect(() => {
+    if (!isModalOpen) {
+      setSelectedAccount(null);
+    }
+  }, [isModalOpen]);
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -51,10 +122,12 @@ export default function AccountsReceivable() {
             <Download className="h-4 w-4 mr-2" />
             Exportar
           </Button>
-          <Button size="sm">
-            <Plus className="h-4 w-4 mr-2" />
-            Nova Conta
-          </Button>
+          {canWrite && (
+            <Button size="sm" onClick={handleOpenCreate}>
+              <Plus className="h-4 w-4 mr-2" />
+              Nova Conta
+            </Button>
+          )}
         </div>
       </div>
 
@@ -63,28 +136,28 @@ export default function AccountsReceivable() {
         <StatCard
           title="Total a Receber"
           value={formatCurrency(totalAmount)}
-          subtitle={`${mockReceivables.length} contas`}
+          subtitle={`${accounts.length} contas`}
           icon={ArrowUpCircle}
           variant="default"
         />
         <StatCard
           title="Em Atraso"
           value={formatCurrency(overdueAmount)}
-          subtitle={`${mockReceivables.filter(a => a.status === 'vencida').length} contas`}
+          subtitle={`${accounts.filter(a => a.status === 'vencida').length} contas`}
           icon={AlertTriangle}
           variant="destructive"
         />
         <StatCard
           title="A Receber"
           value={formatCurrency(pendingAmount)}
-          subtitle={`${mockReceivables.filter(a => a.status === 'a_vencer').length} contas`}
+          subtitle={`${accounts.filter(a => a.status === 'a_vencer').length} contas`}
           icon={Clock}
           variant="info"
         />
         <StatCard
           title="Recebidas"
           value={formatCurrency(receivedAmount)}
-          subtitle={`${mockReceivables.filter(a => a.status === 'paga').length} contas`}
+          subtitle={`${accounts.filter(a => a.status === 'paga').length} contas`}
           icon={CheckCircle}
           variant="success"
         />
@@ -113,15 +186,104 @@ export default function AccountsReceivable() {
           </div>
         </CardHeader>
         <CardContent>
-          <AccountsTable 
-            accounts={filteredAccounts} 
-            type="receivable"
-            onView={(id) => console.log('View', id)}
-            onEdit={(id) => console.log('Edit', id)}
-            onDelete={(id) => console.log('Delete', id)}
-          />
+          {isLoading ? (
+            <div className="space-y-2">
+              {[...Array(5)].map((_, i) => (
+                <Skeleton key={i} className="h-12 w-full" />
+              ))}
+            </div>
+          ) : filteredAccounts.length > 0 ? (
+            <div className="rounded-md border">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Descrição</TableHead>
+                    <TableHead>Cliente</TableHead>
+                    <TableHead className="text-right">Valor</TableHead>
+                    <TableHead>Vencimento</TableHead>
+                    <TableHead>Status</TableHead>
+                    {canWrite && <TableHead className="w-[100px]">Ações</TableHead>}
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredAccounts.map((account) => (
+                    <TableRow key={account.id}>
+                      <TableCell className="font-medium">{account.description}</TableCell>
+                      <TableCell>{account.customer_name}</TableCell>
+                      <TableCell className="text-right font-mono">
+                        {formatCurrency(account.amount)}
+                      </TableCell>
+                      <TableCell>{formatDate(account.due_date)}</TableCell>
+                      <TableCell>
+                        <Badge 
+                          variant={statusConfig[account.status].variant}
+                          className={statusConfig[account.status].className}
+                        >
+                          {statusConfig[account.status].label}
+                        </Badge>
+                      </TableCell>
+                      {canWrite && (
+                        <TableCell>
+                          <div className="flex items-center gap-1">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8"
+                              onClick={() => handleOpenEdit(account)}
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                            {isAdmin && (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 text-destructive"
+                                onClick={() => handleOpenDelete(account)}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            )}
+                          </div>
+                        </TableCell>
+                      )}
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          ) : (
+            <div className="text-center py-12">
+              <ArrowUpCircle className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+              <h3 className="text-lg font-medium">Nenhuma conta encontrada</h3>
+              <p className="text-muted-foreground">
+                {accounts.length === 0 
+                  ? "Comece cadastrando sua primeira conta a receber"
+                  : "Tente ajustar os filtros"
+                }
+              </p>
+            </div>
+          )}
         </CardContent>
       </Card>
+
+      {/* Modals */}
+      <AccountReceivableModal
+        key={selectedAccount?.id || 'new'}
+        open={isModalOpen}
+        onOpenChange={setIsModalOpen}
+        account={selectedAccount}
+        onSubmit={handleSubmit}
+        isLoading={isCreating || isUpdating}
+      />
+
+      <DeleteConfirmModal
+        open={isDeleteModalOpen}
+        onOpenChange={setIsDeleteModalOpen}
+        title="Excluir conta a receber"
+        description={`Tem certeza que deseja excluir "${accountToDelete?.description}"? Esta ação não pode ser desfeita.`}
+        onConfirm={handleConfirmDelete}
+        isLoading={isDeleting}
+      />
     </div>
   );
 }

@@ -43,23 +43,15 @@ export function useSystemLog() {
     if (!user) return;
 
     try {
-      // Use rpc to insert into system_logs to bypass type checking
-      const logData = {
-        user_id: user.id,
-        user_name: profile?.name || user.email || 'Unknown',
-        action,
-        entity_type: entityType,
-        entity_id: entityId || null,
-        details: details ? JSON.stringify(details) : null,
-        status,
-      };
-      
-      // Direct fetch to avoid type issues with new table
-      const { error } = await supabase.rpc('insert_system_log' as never, logData as never);
-      if (error) {
-        // Fallback: try direct insert using raw SQL
-        console.warn('RPC not available, log not recorded');
-      }
+      await supabase.rpc('insert_system_log', {
+        p_user_id: user.id,
+        p_user_name: profile?.name || user.email || 'Unknown',
+        p_action: action,
+        p_entity_type: entityType,
+        p_entity_id: entityId || null,
+        p_details: details ? JSON.stringify(details) : null,
+        p_status: status,
+      });
     } catch (error) {
       console.error('Failed to log action:', error);
     }

@@ -444,6 +444,18 @@ export type Database = {
         }
         Returns: boolean
       }
+      insert_system_log: {
+        Args: {
+          p_action: string
+          p_details?: Json
+          p_entity_id?: string
+          p_entity_type: string
+          p_status?: string
+          p_user_id: string
+          p_user_name: string
+        }
+        Returns: string
+      }
       is_admin: { Args: { _user_id: string }; Returns: boolean }
       is_financeiro: { Args: { _user_id: string }; Returns: boolean }
       is_viewer: { Args: { _user_id: string }; Returns: boolean }

@@ -8,6 +8,7 @@ import {
   LogOut,
   ChevronLeft,
   ChevronRight,
+  ScrollText,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/hooks/useAuth";
@@ -39,6 +40,7 @@ const mainNavItems = [
 
 const adminNavItems = [
   { title: "Configurações", url: "/configuracoes", icon: Settings },
+  { title: "Logs", url: "/logs", icon: ScrollText },
 ];
 
 export function AppSidebar() {
