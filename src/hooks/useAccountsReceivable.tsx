@@ -148,11 +148,15 @@ export function useAccountsReceivable() {
 
   const markAsReceivedMutation = useMutation({
     mutationFn: async ({ id, received_amount }: { id: string; received_amount: number }) => {
+      // Use local date format to avoid timezone issues
+      const now = new Date();
+      const paymentDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+      
       const { data, error } = await supabase
         .from('accounts_receivable')
         .update({
           status: 'paga',
-          payment_date: new Date().toISOString().split('T')[0],
+          payment_date: paymentDate,
           received_amount,
         })
         .eq('id', id)

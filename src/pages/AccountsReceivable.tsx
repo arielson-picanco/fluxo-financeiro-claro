@@ -23,6 +23,7 @@ import {
 } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AccountReceivableModal } from "@/components/modals/AccountReceivableModal";
+import { AccountDetailModal } from "@/components/modals/AccountDetailModal";
 import { DeleteConfirmModal } from "@/components/modals/DeleteConfirmModal";
 import { useAccountsReceivable, AccountReceivable, AccountReceivableInsert } from "@/hooks/useAccountsReceivable";
 import { useAuth } from "@/hooks/useAuth";
@@ -34,11 +35,13 @@ const statusConfig = {
   renegociada: { label: "Renegociada", variant: "secondary" as const, className: "" },
 };
 
-export default function AccountsReceivable() {
+export default function AccountsReceivablePage() {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [selectedAccount, setSelectedAccount] = useState<AccountReceivable | null>(null);
+  const [accountToView, setAccountToView] = useState<AccountReceivable | null>(null);
   const [accountToDelete, setAccountToDelete] = useState<AccountReceivable | null>(null);
 
   const { canWrite, isAdmin } = useAuth();
@@ -70,6 +73,11 @@ export default function AccountsReceivable() {
   const handleOpenEdit = (account: AccountReceivable) => {
     setSelectedAccount(account);
     setIsModalOpen(true);
+  };
+
+  const handleOpenView = (account: AccountReceivable) => {
+    setAccountToView(account);
+    setIsDetailModalOpen(true);
   };
 
   const handleOpenDelete = (account: AccountReceivable) => {
@@ -202,12 +210,16 @@ export default function AccountsReceivable() {
                     <TableHead className="text-right">Valor</TableHead>
                     <TableHead>Vencimento</TableHead>
                     <TableHead>Status</TableHead>
-                    {canWrite && <TableHead className="w-[100px]">Ações</TableHead>}
+                    <TableHead className="w-[120px]">Ações</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {filteredAccounts.map((account) => (
-                    <TableRow key={account.id}>
+                    <TableRow 
+                      key={account.id}
+                      className="cursor-pointer hover:bg-muted/50"
+                      onClick={() => handleOpenView(account)}
+                    >
                       <TableCell className="font-medium">{account.description}</TableCell>
                       <TableCell>{account.customer_name}</TableCell>
                       <TableCell className="text-right font-mono">
@@ -222,9 +234,17 @@ export default function AccountsReceivable() {
                           {statusConfig[account.status].label}
                         </Badge>
                       </TableCell>
-                      {canWrite && (
-                        <TableCell>
-                          <div className="flex items-center gap-1">
+                      <TableCell>
+                        <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
+                            onClick={() => handleOpenView(account)}
+                          >
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                          {canWrite && (
                             <Button
                               variant="ghost"
                               size="icon"
@@ -233,19 +253,19 @@ export default function AccountsReceivable() {
                             >
                               <Pencil className="h-4 w-4" />
                             </Button>
-                            {isAdmin && (
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-8 w-8 text-destructive"
-                                onClick={() => handleOpenDelete(account)}
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            )}
-                          </div>
-                        </TableCell>
-                      )}
+                          )}
+                          {isAdmin && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-destructive"
+                              onClick={() => handleOpenDelete(account)}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          )}
+                        </div>
+                      </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -274,6 +294,13 @@ export default function AccountsReceivable() {
         account={selectedAccount}
         onSubmit={handleSubmit}
         isLoading={isCreating || isUpdating}
+      />
+
+      <AccountDetailModal
+        open={isDetailModalOpen}
+        onOpenChange={setIsDetailModalOpen}
+        account={accountToView}
+        type="receivable"
       />
 
       <DeleteConfirmModal

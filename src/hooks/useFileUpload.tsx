@@ -48,25 +48,44 @@ export function useFileUpload(recordType: string, recordId?: string) {
 
     setIsUploading(true);
     try {
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${targetRecordId}/${Date.now()}.${fileExt}`;
+      // Sanitize filename - remove special characters and spaces
+      const sanitizedName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
+      const fileExt = sanitizedName.split('.').pop()?.toLowerCase() || 'pdf';
+      const uniqueId = `${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+      const fileName = `${targetRecordId}/${uniqueId}.${fileExt}`;
       
-      // Upload to Supabase Storage
-      const { error: uploadError } = await supabase.storage
+      // Convert file to ArrayBuffer for more reliable upload
+      const arrayBuffer = await file.arrayBuffer();
+      const uint8Array = new Uint8Array(arrayBuffer);
+      
+      // Upload to Supabase Storage with explicit content type
+      const { data: uploadData, error: uploadError } = await supabase.storage
         .from('attachments')
-        .upload(fileName, file, {
+        .upload(fileName, uint8Array, {
           cacheControl: '3600',
           upsert: false,
+          contentType: file.type || 'application/octet-stream',
         });
 
-      if (uploadError) throw uploadError;
+      if (uploadError) {
+        console.error('Upload error details:', uploadError);
+        throw new Error(`Falha no upload: ${uploadError.message}`);
+      }
 
       // Get signed URL (bucket is private)
-      const { data: urlData } = await supabase.storage
+      const { data: urlData, error: urlError } = await supabase.storage
         .from('attachments')
         .createSignedUrl(fileName, 60 * 60 * 24 * 365); // 1 year
 
-      const fileUrl = urlData?.signedUrl || fileName;
+      if (urlError) {
+        console.error('URL generation error:', urlError);
+        throw new Error(`Erro ao gerar URL: ${urlError.message}`);
+      }
+
+      const fileUrl = urlData?.signedUrl;
+      if (!fileUrl) {
+        throw new Error('Não foi possível gerar URL do arquivo');
+      }
 
       // Save attachment record
       const { data: attachment, error: dbError } = await supabase
@@ -74,8 +93,8 @@ export function useFileUpload(recordType: string, recordId?: string) {
         .insert({
           record_id: targetRecordId,
           record_type: recordType,
-          file_name: file.name,
-          file_type: file.type,
+          file_name: file.name, // Keep original name for display
+          file_type: file.type || 'application/pdf',
           file_url: fileUrl,
           file_size: file.size,
           uploaded_by: user.id,
@@ -83,17 +102,25 @@ export function useFileUpload(recordType: string, recordId?: string) {
         .select()
         .single();
 
-      if (dbError) throw dbError;
+      if (dbError) {
+        console.error('Database insert error:', dbError);
+        throw new Error(`Erro ao salvar registro: ${dbError.message}`);
+      }
 
       queryClient.invalidateQueries({ queryKey: ['attachments', recordType, targetRecordId] });
       logSuccess('upload', 'attachment', attachment.id, { file_name: file.name });
-      toast.success('Arquivo enviado com sucesso!');
+      toast.success(`Arquivo "${file.name}" enviado com sucesso!`, {
+        description: 'O anexo foi salvo e está disponível para download.',
+      });
       
       return fileUrl;
     } catch (error: unknown) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      logError('upload', 'attachment', undefined, { error: errorMessage });
-      toast.error('Erro ao enviar arquivo: ' + errorMessage);
+      const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido no upload';
+      console.error('Full upload error:', error);
+      logError('upload', 'attachment', undefined, { error: errorMessage, file_name: file.name });
+      toast.error('Erro ao enviar arquivo', {
+        description: errorMessage,
+      });
       return null;
     } finally {
       setIsUploading(false);

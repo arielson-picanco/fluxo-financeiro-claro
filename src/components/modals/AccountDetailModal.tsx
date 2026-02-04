@@ -33,10 +33,10 @@ interface AccountDetailModalProps {
 }
 
 const statusConfig = {
-  a_vencer: { label: 'A Vencer', icon: Clock, variant: 'outline' as const, className: 'border-warning text-warning' },
-  vencida: { label: 'Vencida', icon: AlertTriangle, variant: 'destructive' as const, className: '' },
-  paga: { label: 'Paga', icon: CheckCircle, variant: 'outline' as const, className: 'border-success text-success' },
-  renegociada: { label: 'Renegociada', icon: RefreshCw, variant: 'secondary' as const, className: '' },
+  a_vencer: { label: 'A Vencer', icon: Clock, variant: 'outline' as const, className: 'border-warning text-warning', receivableLabel: 'A Receber' },
+  vencida: { label: 'Vencida', icon: AlertTriangle, variant: 'destructive' as const, className: '', receivableLabel: 'Em Atraso' },
+  paga: { label: 'Paga', icon: CheckCircle, variant: 'outline' as const, className: 'border-success text-success', receivableLabel: 'Recebida' },
+  renegociada: { label: 'Renegociada', icon: RefreshCw, variant: 'secondary' as const, className: '', receivableLabel: 'Renegociada' },
 };
 
 export function AccountDetailModal({ 
@@ -80,7 +80,7 @@ export function AccountDetailModal({
           <div className="flex flex-wrap items-center gap-2">
             <Badge variant={statusInfo.variant} className={statusInfo.className}>
               <StatusIcon className="h-3 w-3 mr-1" />
-              {statusInfo.label}
+              {isPayable ? statusInfo.label : statusInfo.receivableLabel}
             </Badge>
             {account.category && (
               <Badge variant="outline">{account.category}</Badge>
