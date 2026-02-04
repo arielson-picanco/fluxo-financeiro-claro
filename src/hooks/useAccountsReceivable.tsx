@@ -29,6 +29,7 @@ export interface AccountReceivable {
   renegotiated_at: string | null;
   renegotiated_by: string | null;
   created_by: string | null;
+  tags: string[] | null;
   created_at: string;
   updated_at: string;
 }
@@ -47,6 +48,7 @@ export type AccountReceivableInsert = {
   fine_rate?: number | null;
   is_recurring?: boolean | null;
   recurrence_type?: string | null;
+  tags?: string[] | null;
 };
 
 export type AccountReceivableUpdate = Partial<AccountReceivableInsert> & {

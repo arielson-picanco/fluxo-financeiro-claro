@@ -16,11 +16,13 @@ export interface Supplier {
   state: string | null;
   notes: string | null;
   is_active: boolean | null;
+  default_boleto_url: string | null;
+  tags: string[] | null;
   created_at: string;
   updated_at: string;
 }
 
-export type SupplierInsert = Omit<Supplier, 'id' | 'created_at' | 'updated_at'>;
+export type SupplierInsert = Partial<Omit<Supplier, 'id' | 'created_at' | 'updated_at'>> & { name: string };
 export type SupplierUpdate = Partial<SupplierInsert>;
 
 export function useSuppliers() {

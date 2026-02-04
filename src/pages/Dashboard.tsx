@@ -5,6 +5,7 @@ import {
   AlertTriangle,
   TrendingUp,
   TrendingDown,
+  Loader2,
 } from "lucide-react";
 import { StatCard } from "@/components/dashboard/StatCard";
 import { OverviewChart } from "@/components/dashboard/OverviewChart";
@@ -13,21 +14,28 @@ import { AccountsTable } from "@/components/dashboard/AccountsTable";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { formatCurrency, type AccountStatus } from "@/lib/supabase";
-
-// Mock data for demonstration
-const mockPayables = [
-  { id: '1', description: 'Fornecedor ABC Móveis', supplier_name: 'ABC Móveis', amount: 8500, due_date: '2024-02-05', status: 'a_vencer' as AccountStatus },
-  { id: '2', description: 'Conta de Energia', supplier_name: 'CPFL', amount: 1850, due_date: '2024-01-28', status: 'vencida' as AccountStatus },
-  { id: '3', description: 'Aluguel Loja', supplier_name: 'Imobiliária XYZ', amount: 4200, due_date: '2024-02-01', status: 'paga' as AccountStatus },
-];
-
-const mockReceivables = [
-  { id: '1', description: 'Venda Móveis - Cliente A', customer_name: 'João Silva', amount: 12500, due_date: '2024-02-10', status: 'a_vencer' as AccountStatus },
-  { id: '2', description: 'Serviço de Entrega', customer_name: 'Maria Santos', amount: 350, due_date: '2024-02-01', status: 'paga' as AccountStatus },
-  { id: '3', description: 'Financiamento 3/12', customer_name: 'Pedro Oliveira', amount: 2200, due_date: '2024-01-25', status: 'vencida' as AccountStatus },
-];
+import { useDashboardData } from "@/hooks/useDashboardData";
 
 export default function Dashboard() {
+  const { 
+    summary, 
+    chartData, 
+    alerts, 
+    recentPayables, 
+    recentReceivables, 
+    isLoading 
+  } = useDashboardData();
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  const projectedBalance = (summary?.totalReceivable || 0) - (summary?.totalPayable || 0);
+
   return (
     <div className="space-y-6 animate-fade-in">
       {/* Page Header */}
@@ -42,31 +50,29 @@ export default function Dashboard() {
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <StatCard
           title="Total a Pagar"
-          value={formatCurrency(45230)}
-          subtitle="15 contas pendentes"
+          value={formatCurrency(summary?.totalPayable || 0)}
+          subtitle={`${summary?.pendingPayableCount || 0} contas pendentes`}
           icon={ArrowDownCircle}
           variant="destructive"
-          trend={{ value: 12, isPositive: false }}
         />
         <StatCard
           title="Total a Receber"
-          value={formatCurrency(78650)}
-          subtitle="23 contas a receber"
+          value={formatCurrency(summary?.totalReceivable || 0)}
+          subtitle={`${summary?.pendingReceivableCount || 0} contas a receber`}
           icon={ArrowUpCircle}
           variant="success"
-          trend={{ value: 8, isPositive: true }}
         />
         <StatCard
           title="Saldo Previsto"
-          value={formatCurrency(33420)}
+          value={formatCurrency(projectedBalance)}
           subtitle="Próximos 30 dias"
           icon={DollarSign}
-          variant="info"
+          variant={projectedBalance >= 0 ? "info" : "warning"}
         />
         <StatCard
           title="Contas Vencidas"
-          value="5"
-          subtitle={formatCurrency(12350) + " em atraso"}
+          value={String(summary?.overdueCount || 0)}
+          subtitle={formatCurrency(summary?.totalOverdue || 0) + " em atraso"}
           icon={AlertTriangle}
           variant="warning"
         />
@@ -74,8 +80,8 @@ export default function Dashboard() {
 
       {/* Charts and Alerts */}
       <div className="grid gap-4 lg:grid-cols-3">
-        <OverviewChart />
-        <AlertsPanel />
+        <OverviewChart data={chartData} />
+        <AlertsPanel alerts={alerts} />
       </div>
 
       {/* Quick Stats */}
@@ -86,12 +92,19 @@ export default function Dashboard() {
               <div>
                 <p className="text-sm text-muted-foreground">Receita Mensal</p>
                 <p className="text-3xl font-bold font-mono text-success">
-                  {formatCurrency(67000)}
+                  {formatCurrency(summary?.monthlyRevenue || 0)}
                 </p>
               </div>
               <div className="flex items-center gap-2 text-success">
-                <TrendingUp className="h-5 w-5" />
-                <span className="text-sm font-medium">+12.5%</span>
+                {(summary?.revenueChange || 0) >= 0 ? (
+                  <TrendingUp className="h-5 w-5" />
+                ) : (
+                  <TrendingDown className="h-5 w-5" />
+                )}
+                <span className="text-sm font-medium">
+                  {(summary?.revenueChange || 0) >= 0 ? '+' : ''}
+                  {(summary?.revenueChange || 0).toFixed(1)}%
+                </span>
               </div>
             </div>
           </CardContent>
@@ -102,12 +115,19 @@ export default function Dashboard() {
               <div>
                 <p className="text-sm text-muted-foreground">Despesa Mensal</p>
                 <p className="text-3xl font-bold font-mono text-destructive">
-                  {formatCurrency(45000)}
+                  {formatCurrency(summary?.monthlyExpenses || 0)}
                 </p>
               </div>
               <div className="flex items-center gap-2 text-destructive">
-                <TrendingDown className="h-5 w-5" />
-                <span className="text-sm font-medium">+5.2%</span>
+                {(summary?.expenseChange || 0) >= 0 ? (
+                  <TrendingUp className="h-5 w-5" />
+                ) : (
+                  <TrendingDown className="h-5 w-5" />
+                )}
+                <span className="text-sm font-medium">
+                  {(summary?.expenseChange || 0) >= 0 ? '+' : ''}
+                  {(summary?.expenseChange || 0).toFixed(1)}%
+                </span>
               </div>
             </div>
           </CardContent>
@@ -126,10 +146,22 @@ export default function Dashboard() {
               <TabsTrigger value="receivables">Contas a Receber</TabsTrigger>
             </TabsList>
             <TabsContent value="payables" className="mt-4">
-              <AccountsTable accounts={mockPayables} type="payable" />
+              <AccountsTable 
+                accounts={recentPayables.map(p => ({
+                  ...p,
+                  status: p.status as AccountStatus
+                }))} 
+                type="payable" 
+              />
             </TabsContent>
             <TabsContent value="receivables" className="mt-4">
-              <AccountsTable accounts={mockReceivables} type="receivable" />
+              <AccountsTable 
+                accounts={recentReceivables.map(r => ({
+                  ...r,
+                  status: r.status as AccountStatus
+                }))} 
+                type="receivable" 
+              />
             </TabsContent>
           </Tabs>
         </CardContent>

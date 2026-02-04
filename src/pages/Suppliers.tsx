@@ -178,13 +178,18 @@ export default function Suppliers() {
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
                     <Badge variant={supplier.is_active ? "default" : "secondary"}>
                       {supplier.is_active ? "Ativo" : "Inativo"}
                     </Badge>
                     {supplier.category && (
                       <Badge variant="outline">{supplier.category}</Badge>
                     )}
+                    {supplier.tags?.map((tag) => (
+                      <Badge key={tag} variant="secondary" className="text-xs">
+                        {tag}
+                      </Badge>
+                    ))}
                   </div>
 
                   <div className="space-y-2 text-sm">
