@@ -188,13 +188,46 @@ export function useFileUpload(recordType: string, recordId?: string) {
 
   const downloadFile = async (attachment: Attachment) => {
     try {
-      // Use the signed URL directly
+      // Extract the file path from the stored URL to generate a fresh signed URL
+      // This avoids ERR_BLOCKED_BY_CLIENT issues with old/cached signed URLs
+      const url = new URL(attachment.file_url);
+      const pathParts = url.pathname.split('/storage/v1/object/sign/attachments/');
+      
+      if (pathParts.length > 1) {
+        const filePath = decodeURIComponent(pathParts[1].split('?')[0]);
+        
+        // Generate a fresh signed URL
+        const { data, error } = await supabase.storage
+          .from('attachments')
+          .createSignedUrl(filePath, 60 * 60); // 1 hour expiry
+        
+        if (error) throw error;
+        
+        if (data?.signedUrl) {
+          // Create a temporary link to trigger download
+          const link = document.createElement('a');
+          link.href = data.signedUrl;
+          link.target = '_blank';
+          link.rel = 'noopener noreferrer';
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          
+          logSuccess('download', 'attachment', attachment.id, { file_name: attachment.file_name });
+          return;
+        }
+      }
+      
+      // Fallback: try the stored URL
       window.open(attachment.file_url, '_blank');
       logSuccess('download', 'attachment', attachment.id, { file_name: attachment.file_name });
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      console.error('Download error:', error);
       logError('download', 'attachment', attachment.id, { error: errorMessage });
-      toast.error('Erro ao baixar arquivo');
+      toast.error('Erro ao baixar arquivo', {
+        description: 'Tente novamente ou verifique se o arquivo ainda existe.',
+      });
     }
   };
 

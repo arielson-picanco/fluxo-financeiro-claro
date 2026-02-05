@@ -43,6 +43,37 @@ export function formatDate(date: string | Date): string {
   return new Intl.DateTimeFormat('pt-BR').format(date);
 }
 
+/**
+ * Calculate the effective status of an account based on due date and current status
+ * This ensures that accounts past their due date show as "vencida" if not already paid/renegotiated
+ */
+export function calculateEffectiveStatus(
+  dbStatus: AccountStatus,
+  dueDate: string
+): AccountStatus {
+  // If already paid or renegotiated, keep that status
+  if (dbStatus === 'paga' || dbStatus === 'renegociada') {
+    return dbStatus;
+  }
+  
+  // Parse the due date correctly to avoid timezone issues
+  const dueDateParsed = parseDateString(dueDate.split('T')[0]);
+  
+  // Get today's date at start of day
+  const today = new Date();
+  const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  
+  // Set due date to start of day for comparison
+  const dueDateStart = new Date(dueDateParsed.getFullYear(), dueDateParsed.getMonth(), dueDateParsed.getDate());
+  
+  // If due date is in the past, it's overdue
+  if (dueDateStart < todayStart) {
+    return 'vencida';
+  }
+  
+  return 'a_vencer';
+}
+
 // Labels dos status
 export const statusLabels: Record<AccountStatus, string> = {
   a_vencer: 'A Vencer',

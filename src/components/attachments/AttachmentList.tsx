@@ -13,39 +13,7 @@ import { toast } from 'sonner';
 interface AttachmentListProps {
   recordType: string;
   recordId: string;
-  onDateDetected?: (date: Date) => void;
   defaultBoletoUrl?: string | null;
-}
-
-// Detect date from filename (e.g., "20.01.2026" or "2026-01-20" or "20-01-2026")
-function detectDateFromFilename(filename: string): Date | null {
-  const patterns = [
-    /(\d{2})\.(\d{2})\.(\d{4})/, // DD.MM.YYYY
-    /(\d{2})-(\d{2})-(\d{4})/, // DD-MM-YYYY
-    /(\d{4})-(\d{2})-(\d{2})/, // YYYY-MM-DD
-    /(\d{2})(\d{2})(\d{4})/, // DDMMYYYY
-  ];
-
-  for (const pattern of patterns) {
-    const match = filename.match(pattern);
-    if (match) {
-      let day: number, month: number, year: number;
-      
-      if (pattern === patterns[2]) {
-        // YYYY-MM-DD format
-        [, year, month, day] = match.map(Number) as [unknown, number, number, number];
-      } else {
-        // DD-MM-YYYY or similar
-        [, day, month, year] = match.map(Number) as [unknown, number, number, number];
-      }
-
-      if (day >= 1 && day <= 31 && month >= 1 && month <= 12 && year >= 2000 && year <= 2100) {
-        return new Date(year, month - 1, day);
-      }
-    }
-  }
-
-  return null;
 }
 
 function formatFileSize(bytes: number | null): string {
@@ -58,7 +26,6 @@ function formatFileSize(bytes: number | null): string {
 export function AttachmentList({ 
   recordType, 
   recordId, 
-  onDateDetected,
   defaultBoletoUrl,
 }: AttachmentListProps) {
   const [deleteAttachment, setDeleteAttachment] = useState<Attachment | null>(null);
@@ -110,14 +77,6 @@ export function AttachmentList({
         continue;
       }
 
-      // Detect date from filename
-      const detectedDate = detectDateFromFilename(file.name);
-      if (detectedDate && onDateDetected) {
-        onDateDetected(detectedDate);
-        toast.info(`Data detectada: ${format(detectedDate, 'dd/MM/yyyy')}`, {
-          description: `A data de vencimento foi atualizada com base no nome do arquivo "${file.name}".`,
-        });
-      }
 
       const result = await uploadFile(file, recordId);
       if (result) {

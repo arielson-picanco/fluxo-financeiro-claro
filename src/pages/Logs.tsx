@@ -20,8 +20,9 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { useSystemLogs } from "@/hooks/useSystemLogs";
+import { useSystemLogs, SystemLog } from "@/hooks/useSystemLogs";
 import { Skeleton } from "@/components/ui/skeleton";
+import { LogDetailModal } from "@/components/modals/LogDetailModal";
 
 const actionLabels: Record<string, string> = {
   create: "Criação",
@@ -42,12 +43,14 @@ const entityLabels: Record<string, string> = {
   account_receivable: "Conta a Receber",
   attachment: "Anexo",
   user: "Usuário",
+  user_role: "Permissão",
   system: "Sistema",
 };
 
 export default function Logs() {
   const [entityFilter, setEntityFilter] = useState<string>("all");
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [selectedLog, setSelectedLog] = useState<SystemLog | null>(null);
   
   const { data: logs, isLoading, refetch, isRefetching } = useSystemLogs({
     entityType: entityFilter !== "all" ? entityFilter : undefined,
@@ -57,6 +60,10 @@ export default function Logs() {
 
   const formatDate = (dateString: string) => {
     return format(new Date(dateString), "dd/MM/yyyy HH:mm:ss", { locale: ptBR });
+  };
+
+  const handleRowClick = (log: SystemLog) => {
+    setSelectedLog(log);
   };
 
   return (
@@ -101,6 +108,7 @@ export default function Logs() {
                   <SelectItem value="account_receivable">Contas a Receber</SelectItem>
                   <SelectItem value="attachment">Anexos</SelectItem>
                   <SelectItem value="user">Usuários</SelectItem>
+                  <SelectItem value="user_role">Permissões</SelectItem>
                 </SelectContent>
               </Select>
               <Select value={statusFilter} onValueChange={setStatusFilter}>
@@ -138,7 +146,11 @@ export default function Logs() {
                 </TableHeader>
                 <TableBody>
                   {logs.map((log) => (
-                    <TableRow key={log.id}>
+                    <TableRow 
+                      key={log.id}
+                      className="cursor-pointer hover:bg-muted/50"
+                      onClick={() => handleRowClick(log)}
+                    >
                       <TableCell className="font-mono text-xs">
                         {formatDate(log.created_at)}
                       </TableCell>
@@ -187,6 +199,13 @@ export default function Logs() {
           )}
         </CardContent>
       </Card>
+
+      {/* Log Detail Modal */}
+      <LogDetailModal
+        open={!!selectedLog}
+        onOpenChange={(open) => !open && setSelectedLog(null)}
+        log={selectedLog}
+      />
     </div>
   );
 }
