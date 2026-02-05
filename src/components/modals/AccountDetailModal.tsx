@@ -203,7 +203,8 @@ export function AccountDetailModal({
 
           {/* Attachments */}
           <AttachmentList
-            recordType={isPayable ? 'account_payable' : 'account_receivable'}
+            // Canonical record types used in the database (and supported by useFileUpload aliases)
+            recordType={isPayable ? 'payable' : 'receivable'}
             recordId={account.id}
             defaultBoletoUrl={defaultBoletoUrl}
             onDateDetected={onDateDetected}

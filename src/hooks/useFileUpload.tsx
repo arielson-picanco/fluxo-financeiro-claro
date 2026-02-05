@@ -1,9 +1,27 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useSystemLog } from './useSystemLog';
 import { useAuth } from './useAuth';
 import { toast } from 'sonner';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+
+function normalizeRecordType(recordType: string): string {
+  switch (recordType) {
+    // Legacy/variant names used in different parts of the app
+    case 'account_receivable':
+    case 'accounts_receivable':
+      return 'receivable';
+    case 'account_payable':
+    case 'accounts_payable':
+      return 'payable';
+    default:
+      return recordType;
+  }
+}
+
+function uniqueStrings(values: string[]) {
+  return Array.from(new Set(values.filter(Boolean)));
+}
 
 export interface Attachment {
   id: string;
@@ -23,14 +41,25 @@ export function useFileUpload(recordType: string, recordId?: string) {
   const { user } = useAuth();
   const queryClient = useQueryClient();
 
+  const normalizedRecordType = useMemo(() => normalizeRecordType(recordType), [recordType]);
+  const recordTypeAliases = useMemo(() => {
+    if (normalizedRecordType === 'receivable') {
+      return uniqueStrings(['receivable', 'account_receivable', 'accounts_receivable', recordType]);
+    }
+    if (normalizedRecordType === 'payable') {
+      return uniqueStrings(['payable', 'account_payable', 'accounts_payable', recordType]);
+    }
+    return uniqueStrings([normalizedRecordType, recordType]);
+  }, [normalizedRecordType, recordType]);
+
   const attachmentsQuery = useQuery({
-    queryKey: ['attachments', recordType, recordId],
+    queryKey: ['attachments', normalizedRecordType, recordId],
     queryFn: async () => {
       if (!recordId) return [];
       const { data, error } = await supabase
         .from('attachments')
         .select('*')
-        .eq('record_type', recordType)
+        .in('record_type', recordTypeAliases)
         .eq('record_id', recordId)
         .order('created_at', { ascending: false });
       
@@ -92,7 +121,8 @@ export function useFileUpload(recordType: string, recordId?: string) {
         .from('attachments')
         .insert({
           record_id: targetRecordId,
-          record_type: recordType,
+          // Always persist in the normalized record_type so lists stay consistent
+          record_type: normalizedRecordType,
           file_name: file.name, // Keep original name for display
           file_type: file.type || 'application/pdf',
           file_url: fileUrl,
@@ -107,7 +137,7 @@ export function useFileUpload(recordType: string, recordId?: string) {
         throw new Error(`Erro ao salvar registro: ${dbError.message}`);
       }
 
-      queryClient.invalidateQueries({ queryKey: ['attachments', recordType, targetRecordId] });
+      queryClient.invalidateQueries({ queryKey: ['attachments', normalizedRecordType, targetRecordId] });
       logSuccess('upload', 'attachment', attachment.id, { file_name: file.name });
       toast.success(`Arquivo "${file.name}" enviado com sucesso!`, {
         description: 'O anexo foi salvo e está disponível para download.',
