@@ -29,7 +29,6 @@ interface AccountDetailModalProps {
   account: (AccountPayable | AccountReceivable) | null;
   type: 'payable' | 'receivable';
   defaultBoletoUrl?: string | null;
-  onDateDetected?: (date: Date) => void;
 }
 
 const statusConfig = {
@@ -45,7 +44,6 @@ export function AccountDetailModal({
   account,
   type,
   defaultBoletoUrl,
-  onDateDetected,
 }: AccountDetailModalProps) {
   if (!account) return null;
 
@@ -207,7 +205,6 @@ export function AccountDetailModal({
             recordType={isPayable ? 'payable' : 'receivable'}
             recordId={account.id}
             defaultBoletoUrl={defaultBoletoUrl}
-            onDateDetected={onDateDetected}
           />
         </div>
       </DialogContent>

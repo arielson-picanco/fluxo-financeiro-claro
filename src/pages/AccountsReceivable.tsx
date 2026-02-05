@@ -1,9 +1,9 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Plus, Filter, Download, Eye, Pencil, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { StatCard } from "@/components/dashboard/StatCard";
-import { formatCurrency, formatDate } from "@/lib/supabase";
+import { formatCurrency, formatDate, calculateEffectiveStatus, AccountStatus } from "@/lib/supabase";
 import { ArrowUpCircle, AlertTriangle, Clock, CheckCircle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -35,6 +35,9 @@ const statusConfig = {
   renegociada: { label: "Renegociada", variant: "secondary" as const, className: "" },
 };
 
+// Extend AccountReceivable with calculated effective status
+type AccountReceivableWithEffectiveStatus = AccountReceivable & { effectiveStatus: AccountStatus };
+
 export default function AccountsReceivablePage() {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -46,7 +49,7 @@ export default function AccountsReceivablePage() {
 
   const { canWrite, isAdmin } = useAuth();
   const { 
-    accounts, 
+    accounts: rawAccounts, 
     isLoading, 
     createAccount, 
     updateAccount, 
@@ -56,14 +59,22 @@ export default function AccountsReceivablePage() {
     isDeleting,
   } = useAccountsReceivable();
 
+  // Calculate effective status for all accounts
+  const accounts: AccountReceivableWithEffectiveStatus[] = useMemo(() => {
+    return rawAccounts.map(account => ({
+      ...account,
+      effectiveStatus: calculateEffectiveStatus(account.status, account.due_date),
+    }));
+  }, [rawAccounts]);
+
   const filteredAccounts = statusFilter === "all" 
     ? accounts 
-    : accounts.filter(a => a.status === statusFilter);
+    : accounts.filter(a => a.effectiveStatus === statusFilter);
 
   const totalAmount = accounts.reduce((sum, a) => sum + a.amount, 0);
-  const overdueAmount = accounts.filter(a => a.status === 'vencida').reduce((sum, a) => sum + a.amount, 0);
-  const pendingAmount = accounts.filter(a => a.status === 'a_vencer').reduce((sum, a) => sum + a.amount, 0);
-  const receivedAmount = accounts.filter(a => a.status === 'paga').reduce((sum, a) => sum + a.amount, 0);
+  const overdueAmount = accounts.filter(a => a.effectiveStatus === 'vencida').reduce((sum, a) => sum + a.amount, 0);
+  const pendingAmount = accounts.filter(a => a.effectiveStatus === 'a_vencer').reduce((sum, a) => sum + a.amount, 0);
+  const receivedAmount = accounts.filter(a => a.effectiveStatus === 'paga').reduce((sum, a) => sum + a.amount, 0);
 
   const handleOpenCreate = () => {
     setSelectedAccount(null);
@@ -151,21 +162,21 @@ export default function AccountsReceivablePage() {
         <StatCard
           title="Em Atraso"
           value={formatCurrency(overdueAmount)}
-          subtitle={`${accounts.filter(a => a.status === 'vencida').length} contas`}
+          subtitle={`${accounts.filter(a => a.effectiveStatus === 'vencida').length} contas`}
           icon={AlertTriangle}
           variant="destructive"
         />
         <StatCard
           title="A Receber"
           value={formatCurrency(pendingAmount)}
-          subtitle={`${accounts.filter(a => a.status === 'a_vencer').length} contas`}
+          subtitle={`${accounts.filter(a => a.effectiveStatus === 'a_vencer').length} contas`}
           icon={Clock}
           variant="info"
         />
         <StatCard
           title="Recebidas"
           value={formatCurrency(receivedAmount)}
-          subtitle={`${accounts.filter(a => a.status === 'paga').length} contas`}
+          subtitle={`${accounts.filter(a => a.effectiveStatus === 'paga').length} contas`}
           icon={CheckCircle}
           variant="success"
         />
@@ -228,10 +239,10 @@ export default function AccountsReceivablePage() {
                       <TableCell>{formatDate(account.due_date)}</TableCell>
                       <TableCell>
                         <Badge 
-                          variant={statusConfig[account.status].variant}
-                          className={statusConfig[account.status].className}
+                          variant={statusConfig[account.effectiveStatus].variant}
+                          className={statusConfig[account.effectiveStatus].className}
                         >
-                          {statusConfig[account.status].label}
+                          {statusConfig[account.effectiveStatus].label}
                         </Badge>
                       </TableCell>
                       <TableCell>
