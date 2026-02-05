@@ -77,7 +77,15 @@ export function AttachmentList({
     const files = e.target.files;
     if (!files || files.length === 0) return;
 
-    const allowedTypes = ['application/pdf', 'image/jpeg', 'image/png', 'image/gif'];
+    const allowedTypes = [
+      'application/pdf',
+      'application/x-pdf',
+      'application/acrobat',
+      'application/octet-stream',
+      'image/jpeg',
+      'image/png',
+      'image/gif',
+    ];
     const maxSize = 10 * 1024 * 1024; // 10MB
     
     let successCount = 0;
