@@ -22,7 +22,7 @@ export interface AccountPayable {
   fine_amount: number | null;
   paid_amount: number | null;
   is_recurring: boolean | null;
-  recurrence_type: string | null;
+  recurrence_type: 'daily' | 'weekly' | 'monthly' | 'yearly' | null;
   parent_id: string | null;
   original_due_date: string | null;
   renegotiated_at: string | null;
@@ -31,11 +31,11 @@ export interface AccountPayable {
   tags: string[] | null;
   created_at: string;
   updated_at: string;
-  // Joined fields
   supplier?: {
     id: string;
     name: string;
   };
+  is_from_invoice?: boolean;
 }
 
 export type AccountPayableInsert = {
@@ -50,7 +50,7 @@ export type AccountPayableInsert = {
   interest_rate?: number | null;
   fine_rate?: number | null;
   is_recurring?: boolean | null;
-  recurrence_type?: string | null;
+  recurrence_type?: 'daily' | 'weekly' | 'monthly' | 'yearly' | null;
   tags?: string[] | null;
 };
 
@@ -70,7 +70,7 @@ export function useAccountsPayable() {
   const query = useQuery({
     queryKey: ['accounts_payable'],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data: accounts, error } = await supabase
         .from('accounts_payable')
         .select(`
           *,
@@ -79,40 +79,108 @@ export function useAccountsPayable() {
         .order('due_date', { ascending: true });
       
       if (error) throw error;
-      return data as AccountPayable[];
+
+      const { data: invoices } = await supabase
+        .from('supplier_invoices')
+        .select('account_payable_id')
+        .not('account_payable_id', 'is', null);
+
+      const invoicePayableIds = new Set(invoices?.map(i => i.account_payable_id));
+
+      return (accounts as AccountPayable[]).map(account => ({
+        ...account,
+        is_from_invoice: invoicePayableIds.has(account.id)
+      }));
     },
   });
 
-  const createMutation = useMutation({
+  const createAccount = useMutation({
     mutationFn: async (account: AccountPayableInsert) => {
+      const totalInstallments = account.total_installments || 1;
+      const amountPerInstallment = account.amount / totalInstallments;
+      const installments = [];
+      const baseDate = new Date(account.due_date + 'T12:00:00');
+
+      // Mapeamento de frequências para o banco de dados
+      const recurrenceMap: Record<string, 'daily' | 'weekly' | 'monthly' | 'yearly'> = {
+        'diario': 'daily',
+        'semanal': 'weekly',
+        'mensal': 'monthly',
+        'anual': 'yearly',
+        'daily': 'daily',
+        'weekly': 'weekly',
+        'monthly': 'monthly',
+        'yearly': 'yearly'
+      };
+
+      const dbRecurrenceType = account.recurrence_type ? recurrenceMap[account.recurrence_type] : null;
+
+      for (let i = 1; i <= totalInstallments; i++) {
+        const dueDate = new Date(baseDate);
+        dueDate.setMonth(baseDate.getMonth() + (i - 1));
+        
+        installments.push({
+          ...account,
+          amount: amountPerInstallment,
+          due_date: dueDate.toISOString().split('T')[0],
+          installment_number: i,
+          total_installments: totalInstallments,
+          created_by: user?.id,
+          status: 'a_vencer',
+          recurrence_type: dbRecurrenceType
+        });
+      }
+
       const { data, error } = await supabase
         .from('accounts_payable')
-        .insert({
-          ...account,
-          created_by: user?.id,
-        })
+        .insert(installments)
         .select(`
           *,
           supplier:suppliers(id, name)
-        `)
-        .single();
+        `);
       
       if (error) throw error;
-      return data as AccountPayable;
+      return data[0] as AccountPayable;
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['accounts_payable'] });
       logSuccess('create', 'account_payable', data.id, { description: data.description, amount: data.amount });
-      toast.success('Conta a pagar cadastrada com sucesso!');
+      toast.success('Conta(s) cadastrada(s) com sucesso!');
     },
     onError: (error: Error) => {
       logError('create', 'account_payable', undefined, { error: error.message });
-      toast.error('Erro ao cadastrar conta: ' + error.message);
+      toast.error('Erro ao cadastrar: ' + error.message);
     },
   });
 
-  const updateMutation = useMutation({
+  const updateAccount = useMutation({
     mutationFn: async ({ id, ...updates }: { id: string } & AccountPayableUpdate) => {
+      const { data: invoice } = await supabase
+        .from('supplier_invoices')
+        .select('id')
+        .eq('account_payable_id', id)
+        .maybeSingle();
+
+      if (invoice) {
+        throw new Error("Esta conta é vinculada a uma Nota Fiscal e só pode ser editada na aba de Fornecedores.");
+      }
+
+      // Mapeamento de frequências para o banco de dados
+      const recurrenceMap: Record<string, 'daily' | 'weekly' | 'monthly' | 'yearly'> = {
+        'diario': 'daily',
+        'semanal': 'weekly',
+        'mensal': 'monthly',
+        'anual': 'yearly',
+        'daily': 'daily',
+        'weekly': 'weekly',
+        'monthly': 'monthly',
+        'yearly': 'yearly'
+      };
+
+      if (updates.recurrence_type) {
+        updates.recurrence_type = recurrenceMap[updates.recurrence_type] || updates.recurrence_type;
+      }
+
       const { data, error } = await supabase
         .from('accounts_payable')
         .update(updates)
@@ -129,16 +197,25 @@ export function useAccountsPayable() {
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['accounts_payable'] });
       logSuccess('update', 'account_payable', data.id, { description: data.description });
-      toast.success('Conta atualizada com sucesso!');
+      toast.success('Conta atualizada!');
     },
     onError: (error: Error) => {
-      logError('update', 'account_payable', undefined, { error: error.message });
-      toast.error('Erro ao atualizar conta: ' + error.message);
+      toast.error(error.message);
     },
   });
 
-  const deleteMutation = useMutation({
+  const deleteAccount = useMutation({
     mutationFn: async (id: string) => {
+      const { data: invoice } = await supabase
+        .from('supplier_invoices')
+        .select('id')
+        .eq('account_payable_id', id)
+        .maybeSingle();
+
+      if (invoice) {
+        throw new Error("Esta conta é vinculada a uma Nota Fiscal e só pode ser excluída na aba de Fornecedores.");
+      }
+
       const { error } = await supabase
         .from('accounts_payable')
         .delete()
@@ -147,29 +224,27 @@ export function useAccountsPayable() {
       if (error) throw error;
       return id;
     },
-    onSuccess: (id) => {
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['accounts_payable'] });
-      logSuccess('delete', 'account_payable', id);
-      toast.success('Conta removida com sucesso!');
+      toast.success('Conta removida!');
     },
     onError: (error: Error) => {
-      logError('delete', 'account_payable', undefined, { error: error.message });
-      toast.error('Erro ao remover conta: ' + error.message);
+      toast.error(error.message);
     },
   });
 
-  const markAsPaidMutation = useMutation({
-    mutationFn: async ({ id, paid_amount }: { id: string; paid_amount: number }) => {
-      // Use local date format to avoid timezone issues
+  const togglePaymentStatus = useMutation({
+    mutationFn: async ({ id, currentStatus, amount }: { id: string; currentStatus: string; amount: number }) => {
+      const isPaid = currentStatus === 'paga';
       const now = new Date();
-      const paymentDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+      const paymentDate = isPaid ? null : `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
       
       const { data, error } = await supabase
         .from('accounts_payable')
         .update({
-          status: 'paga',
+          status: isPaid ? 'a_vencer' : 'paga',
           payment_date: paymentDate,
-          paid_amount,
+          paid_amount: isPaid ? null : amount,
         })
         .eq('id', id)
         .select(`
@@ -183,12 +258,11 @@ export function useAccountsPayable() {
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['accounts_payable'] });
-      logSuccess('pay', 'account_payable', data.id, { paid_amount: data.paid_amount });
-      toast.success('Pagamento registrado com sucesso!');
+      const action = data.status === 'paga' ? 'paga' : 'pendente';
+      toast.success(`Conta marcada como ${action}!`);
     },
     onError: (error: Error) => {
-      logError('pay', 'account_payable', undefined, { error: error.message });
-      toast.error('Erro ao registrar pagamento: ' + error.message);
+      toast.error('Erro ao alterar status: ' + error.message);
     },
   });
 
@@ -196,13 +270,13 @@ export function useAccountsPayable() {
     accounts: query.data ?? [],
     isLoading: query.isLoading,
     error: query.error,
-    createAccount: createMutation.mutate,
-    updateAccount: updateMutation.mutate,
-    deleteAccount: deleteMutation.mutate,
-    markAsPaid: markAsPaidMutation.mutate,
-    isCreating: createMutation.isPending,
-    isUpdating: updateMutation.isPending,
-    isDeleting: deleteMutation.isPending,
-    isPaying: markAsPaidMutation.isPending,
+    createAccount: createAccount.mutate,
+    updateAccount: updateAccount.mutate,
+    deleteAccount: deleteAccount.mutate,
+    togglePaymentStatus: togglePaymentStatus.mutate,
+    isCreating: createAccount.isPending,
+    isUpdating: updateAccount.isPending,
+    isDeleting: deleteAccount.isPending,
+    isToggling: togglePaymentStatus.isPending,
   };
 }

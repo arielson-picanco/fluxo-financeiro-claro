@@ -6,6 +6,7 @@ import { StatCard } from "@/components/dashboard/StatCard";
 import { formatCurrency, formatDate, calculateEffectiveStatus, AccountStatus } from "@/lib/supabase";
 import { ArrowDownCircle, AlertTriangle, Clock, CheckCircle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
 import {
   Select,
   SelectContent,
@@ -36,7 +37,6 @@ const statusConfig = {
   renegociada: { label: "Renegociada", variant: "secondary" as const, className: "" },
 };
 
-// Extend AccountPayable with calculated effective status
 type AccountPayableWithEffectiveStatus = AccountPayable & { effectiveStatus: AccountStatus };
 
 export default function AccountsPayablePage() {
@@ -56,12 +56,12 @@ export default function AccountsPayablePage() {
     createAccount, 
     updateAccount, 
     deleteAccount,
+    togglePaymentStatus,
     isCreating,
     isUpdating,
     isDeleting,
   } = useAccountsPayable();
 
-  // Calculate effective status for all accounts
   const accounts: AccountPayableWithEffectiveStatus[] = useMemo(() => {
     return rawAccounts.map(account => ({
       ...account,
@@ -98,6 +98,14 @@ export default function AccountsPayablePage() {
     setIsDeleteModalOpen(true);
   };
 
+  const handleToggleStatus = (account: AccountPayable) => {
+    togglePaymentStatus({ 
+      id: account.id, 
+      currentStatus: account.status, 
+      amount: account.amount 
+    });
+  };
+
   const handleSubmit = (data: AccountPayableInsert | (AccountPayableInsert & { id: string })) => {
     if ('id' in data) {
       const { id, ...updates } = data;
@@ -122,7 +130,6 @@ export default function AccountsPayablePage() {
     }
   };
 
-  // Get default boleto from supplier
   const getDefaultBoleto = (account: AccountPayable | null) => {
     if (!account?.supplier_id) return null;
     const supplier = suppliers.find(s => s.id === account.supplier_id);
@@ -137,13 +144,10 @@ export default function AccountsPayablePage() {
 
   return (
     <div className="space-y-6 animate-fade-in">
-      {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Contas a Pagar</h1>
-          <p className="text-muted-foreground">
-            Gerencie todas as suas despesas e pagamentos
-          </p>
+          <p className="text-muted-foreground">Gerencie todas as suas despesas e pagamentos</p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" size="sm">
@@ -159,39 +163,13 @@ export default function AccountsPayablePage() {
         </div>
       </div>
 
-      {/* Stats */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <StatCard
-          title="Total a Pagar"
-          value={formatCurrency(totalAmount)}
-          subtitle={`${accounts.length} contas`}
-          icon={ArrowDownCircle}
-          variant="default"
-        />
-        <StatCard
-          title="Vencidas"
-          value={formatCurrency(overdueAmount)}
-          subtitle={`${accounts.filter(a => a.effectiveStatus === 'vencida').length} contas`}
-          icon={AlertTriangle}
-          variant="destructive"
-        />
-        <StatCard
-          title="A Vencer"
-          value={formatCurrency(pendingAmount)}
-          subtitle={`${accounts.filter(a => a.effectiveStatus === 'a_vencer').length} contas`}
-          icon={Clock}
-          variant="warning"
-        />
-        <StatCard
-          title="Pagas"
-          value={formatCurrency(paidAmount)}
-          subtitle={`${accounts.filter(a => a.effectiveStatus === 'paga').length} contas`}
-          icon={CheckCircle}
-          variant="success"
-        />
+        <StatCard title="Total a Pagar" value={formatCurrency(totalAmount)} subtitle={`${accounts.length} contas`} icon={ArrowDownCircle} variant="default" />
+        <StatCard title="Vencidas" value={formatCurrency(overdueAmount)} subtitle={`${accounts.filter(a => a.effectiveStatus === 'vencida').length} contas`} icon={AlertTriangle} variant="destructive" />
+        <StatCard title="A Vencer" value={formatCurrency(pendingAmount)} subtitle={`${accounts.filter(a => a.effectiveStatus === 'a_vencer').length} contas`} icon={Clock} variant="warning" />
+        <StatCard title="Pagas" value={formatCurrency(paidAmount)} subtitle={`${accounts.filter(a => a.effectiveStatus === 'paga').length} contas`} icon={CheckCircle} variant="success" />
       </div>
 
-      {/* Filters and Table */}
       <Card>
         <CardHeader>
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -216,15 +194,14 @@ export default function AccountsPayablePage() {
         <CardContent>
           {isLoading ? (
             <div className="space-y-2">
-              {[...Array(5)].map((_, i) => (
-                <Skeleton key={i} className="h-12 w-full" />
-              ))}
+              {[...Array(5)].map((_, i) => <Skeleton key={i} className="h-12 w-full" />)}
             </div>
           ) : filteredAccounts.length > 0 ? (
             <div className="rounded-md border">
               <Table>
                 <TableHeader>
                   <TableRow>
+                    <TableHead className="w-[60px]">Pago</TableHead>
                     <TableHead>Descrição</TableHead>
                     <TableHead>Fornecedor</TableHead>
                     <TableHead className="text-right">Valor</TableHead>
@@ -235,52 +212,36 @@ export default function AccountsPayablePage() {
                 </TableHeader>
                 <TableBody>
                   {filteredAccounts.map((account) => (
-                    <TableRow 
-                      key={account.id}
-                      className="cursor-pointer hover:bg-muted/50"
-                      onClick={() => handleOpenView(account)}
-                    >
+                    <TableRow key={account.id} className="cursor-pointer hover:bg-muted/50" onClick={() => handleOpenView(account)}>
+                      <TableCell onClick={(e) => e.stopPropagation()}>
+                        <Switch
+                          checked={account.status === 'paga'}
+                          onCheckedChange={() => handleToggleStatus(account)}
+                          className="data-[state=checked]:bg-success data-[state=unchecked]:bg-destructive"
+                          aria-label="Alternar status de pagamento"
+                        />
+                      </TableCell>
                       <TableCell className="font-medium">{account.description}</TableCell>
                       <TableCell>{account.supplier?.name || "-"}</TableCell>
-                      <TableCell className="text-right font-mono">
-                        {formatCurrency(account.amount)}
-                      </TableCell>
+                      <TableCell className="text-right font-mono">{formatCurrency(account.amount)}</TableCell>
                       <TableCell>{formatDate(account.due_date)}</TableCell>
                       <TableCell>
-                        <Badge 
-                          variant={statusConfig[account.effectiveStatus].variant}
-                          className={statusConfig[account.effectiveStatus].className}
-                        >
+                        <Badge variant={statusConfig[account.effectiveStatus].variant} className={statusConfig[account.effectiveStatus].className}>
                           {statusConfig[account.effectiveStatus].label}
                         </Badge>
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8"
-                            onClick={() => handleOpenView(account)}
-                          >
+                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleOpenView(account)}>
                             <Eye className="h-4 w-4" />
                           </Button>
                           {canWrite && (
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8"
-                              onClick={() => handleOpenEdit(account)}
-                            >
+                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleOpenEdit(account)}>
                               <Pencil className="h-4 w-4" />
                             </Button>
                           )}
                           {isAdmin && (
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8 text-destructive"
-                              onClick={() => handleOpenDelete(account)}
-                            >
+                            <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => handleOpenDelete(account)}>
                               <Trash2 className="h-4 w-4" />
                             </Button>
                           )}
@@ -295,43 +256,15 @@ export default function AccountsPayablePage() {
             <div className="text-center py-12">
               <ArrowDownCircle className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
               <h3 className="text-lg font-medium">Nenhuma conta encontrada</h3>
-              <p className="text-muted-foreground">
-                {accounts.length === 0 
-                  ? "Comece cadastrando sua primeira conta a pagar"
-                  : "Tente ajustar os filtros"
-                }
-              </p>
+              <p className="text-muted-foreground">{accounts.length === 0 ? "Comece cadastrando sua primeira conta a pagar" : "Tente ajustar os filtros"}</p>
             </div>
           )}
         </CardContent>
       </Card>
 
-      {/* Modals */}
-      <AccountPayableModal
-        key={selectedAccount?.id || 'new'}
-        open={isModalOpen}
-        onOpenChange={setIsModalOpen}
-        account={selectedAccount}
-        onSubmit={handleSubmit}
-        isLoading={isCreating || isUpdating}
-      />
-
-      <AccountDetailModal
-        open={isDetailModalOpen}
-        onOpenChange={setIsDetailModalOpen}
-        account={accountToView}
-        type="payable"
-        defaultBoletoUrl={getDefaultBoleto(accountToView)}
-      />
-
-      <DeleteConfirmModal
-        open={isDeleteModalOpen}
-        onOpenChange={setIsDeleteModalOpen}
-        title="Excluir conta a pagar"
-        description={`Tem certeza que deseja excluir "${accountToDelete?.description}"? Esta ação não pode ser desfeita.`}
-        onConfirm={handleConfirmDelete}
-        isLoading={isDeleting}
-      />
+      <AccountPayableModal key={selectedAccount?.id || 'new'} open={isModalOpen} onOpenChange={setIsModalOpen} account={selectedAccount} onSubmit={handleSubmit} isLoading={isCreating || isUpdating} />
+      <AccountDetailModal open={isDetailModalOpen} onOpenChange={setIsDetailModalOpen} account={accountToView} type="payable" defaultBoletoUrl={getDefaultBoleto(accountToView)} />
+      <DeleteConfirmModal open={isDeleteModalOpen} onOpenChange={setIsDeleteModalOpen} title="Excluir conta a pagar" description={`Tem certeza que deseja excluir "${accountToDelete?.description}"? Esta ação não pode ser desfeita.`} onConfirm={handleConfirmDelete} isLoading={isDeleting} />
     </div>
   );
 }

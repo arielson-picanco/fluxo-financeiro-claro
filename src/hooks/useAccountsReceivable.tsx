@@ -23,7 +23,7 @@ export interface AccountReceivable {
   fine_amount: number | null;
   received_amount: number | null;
   is_recurring: boolean | null;
-  recurrence_type: string | null;
+  recurrence_type: 'daily' | 'weekly' | 'monthly' | 'yearly' | null;
   parent_id: string | null;
   original_due_date: string | null;
   renegotiated_at: string | null;
@@ -47,7 +47,7 @@ export type AccountReceivableInsert = {
   interest_rate?: number | null;
   fine_rate?: number | null;
   is_recurring?: boolean | null;
-  recurrence_type?: string | null;
+  recurrence_type?: 'daily' | 'weekly' | 'monthly' | 'yearly' | null;
   tags?: string[] | null;
 };
 
@@ -77,33 +77,80 @@ export function useAccountsReceivable() {
     },
   });
 
-  const createMutation = useMutation({
+  const createAccount = useMutation({
     mutationFn: async (account: AccountReceivableInsert) => {
+      const totalInstallments = account.total_installments || 1;
+      const amountPerInstallment = account.amount / totalInstallments;
+      const installments = [];
+      const baseDate = new Date(account.due_date + 'T12:00:00');
+
+      // Mapeamento de frequências para o banco de dados
+      const recurrenceMap: Record<string, 'daily' | 'weekly' | 'monthly' | 'yearly'> = {
+        'diario': 'daily',
+        'semanal': 'weekly',
+        'mensal': 'monthly',
+        'anual': 'yearly',
+        'daily': 'daily',
+        'weekly': 'weekly',
+        'monthly': 'monthly',
+        'yearly': 'yearly'
+      };
+
+      const dbRecurrenceType = account.recurrence_type ? recurrenceMap[account.recurrence_type] : null;
+
+      for (let i = 1; i <= totalInstallments; i++) {
+        const dueDate = new Date(baseDate);
+        dueDate.setMonth(baseDate.getMonth() + (i - 1));
+        
+        installments.push({
+          ...account,
+          amount: amountPerInstallment,
+          due_date: dueDate.toISOString().split('T')[0],
+          installment_number: i,
+          total_installments: totalInstallments,
+          created_by: user?.id,
+          status: 'a_vencer',
+          recurrence_type: dbRecurrenceType
+        });
+      }
+
       const { data, error } = await supabase
         .from('accounts_receivable')
-        .insert({
-          ...account,
-          created_by: user?.id,
-        })
-        .select()
-        .single();
+        .insert(installments)
+        .select();
       
       if (error) throw error;
-      return data as AccountReceivable;
+      return data[0] as AccountReceivable;
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['accounts_receivable'] });
       logSuccess('create', 'account_receivable', data.id, { description: data.description, amount: data.amount });
-      toast.success('Conta a receber cadastrada com sucesso!');
+      toast.success('Recebimento(s) cadastrado(s) com sucesso!');
     },
     onError: (error: Error) => {
       logError('create', 'account_receivable', undefined, { error: error.message });
-      toast.error('Erro ao cadastrar conta: ' + error.message);
+      toast.error('Erro ao cadastrar: ' + error.message);
     },
   });
 
-  const updateMutation = useMutation({
+  const updateAccount = useMutation({
     mutationFn: async ({ id, ...updates }: { id: string } & AccountReceivableUpdate) => {
+      // Mapeamento de frequências para o banco de dados
+      const recurrenceMap: Record<string, 'daily' | 'weekly' | 'monthly' | 'yearly'> = {
+        'diario': 'daily',
+        'semanal': 'weekly',
+        'mensal': 'monthly',
+        'anual': 'yearly',
+        'daily': 'daily',
+        'weekly': 'weekly',
+        'monthly': 'monthly',
+        'yearly': 'yearly'
+      };
+
+      if (updates.recurrence_type) {
+        updates.recurrence_type = recurrenceMap[updates.recurrence_type] || updates.recurrence_type;
+      }
+
       const { data, error } = await supabase
         .from('accounts_receivable')
         .update(updates)
@@ -125,7 +172,7 @@ export function useAccountsReceivable() {
     },
   });
 
-  const deleteMutation = useMutation({
+  const deleteAccount = useMutation({
     mutationFn: async (id: string) => {
       const { error } = await supabase
         .from('accounts_receivable')
@@ -146,18 +193,18 @@ export function useAccountsReceivable() {
     },
   });
 
-  const markAsReceivedMutation = useMutation({
-    mutationFn: async ({ id, received_amount }: { id: string; received_amount: number }) => {
-      // Use local date format to avoid timezone issues
+  const toggleReceivedStatus = useMutation({
+    mutationFn: async ({ id, currentStatus, amount }: { id: string; currentStatus: string; amount: number }) => {
+      const isReceived = currentStatus === 'paga';
       const now = new Date();
-      const paymentDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+      const paymentDate = isReceived ? null : `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
       
       const { data, error } = await supabase
         .from('accounts_receivable')
         .update({
-          status: 'paga',
+          status: isReceived ? 'a_vencer' : 'paga',
           payment_date: paymentDate,
-          received_amount,
+          received_amount: isReceived ? null : amount,
         })
         .eq('id', id)
         .select()
@@ -168,12 +215,11 @@ export function useAccountsReceivable() {
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['accounts_receivable'] });
-      logSuccess('pay', 'account_receivable', data.id, { received_amount: data.received_amount });
-      toast.success('Recebimento registrado com sucesso!');
+      const action = data.status === 'paga' ? 'recebida' : 'pendente';
+      toast.success(`Conta marcada como ${action}!`);
     },
     onError: (error: Error) => {
-      logError('pay', 'account_receivable', undefined, { error: error.message });
-      toast.error('Erro ao registrar recebimento: ' + error.message);
+      toast.error('Erro ao alterar status: ' + error.message);
     },
   });
 
@@ -181,13 +227,13 @@ export function useAccountsReceivable() {
     accounts: query.data ?? [],
     isLoading: query.isLoading,
     error: query.error,
-    createAccount: createMutation.mutate,
-    updateAccount: updateMutation.mutate,
-    deleteAccount: deleteMutation.mutate,
-    markAsReceived: markAsReceivedMutation.mutate,
-    isCreating: createMutation.isPending,
-    isUpdating: updateMutation.isPending,
-    isDeleting: deleteMutation.isPending,
-    isReceiving: markAsReceivedMutation.isPending,
+    createAccount: createAccount.mutate,
+    updateAccount: updateAccount.mutate,
+    deleteAccount: deleteAccount.mutate,
+    toggleReceivedStatus: toggleReceivedStatus.mutate,
+    isCreating: createAccount.isPending,
+    isUpdating: updateAccount.isPending,
+    isDeleting: deleteAccount.isPending,
+    isToggling: toggleReceivedStatus.isPending,
   };
 }

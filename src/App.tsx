@@ -12,6 +12,7 @@ import Auth from "@/pages/Auth";
 import AccountsPayable from "@/pages/AccountsPayable";
 import AccountsReceivable from "@/pages/AccountsReceivable";
 import Suppliers from "@/pages/Suppliers";
+import HR from "@/pages/HR";
 import Reports from "@/pages/Reports";
 import Settings from "@/pages/Settings";
 import Logs from "@/pages/Logs";
@@ -94,10 +95,18 @@ function AppRoutes() {
         }
       />
       <Route
-        path="/fornecedores"
+        path="/contatos"
         element={
           <ProtectedRoute>
             <Suppliers />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/rh"
+        element={
+          <ProtectedRoute>
+            <HR />
           </ProtectedRoute>
         }
       />

@@ -3,10 +3,10 @@ import { useForm } from "react-hook-form";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { useSupplierInvoices } from "@/hooks/useSupplierInvoices";
-import { useFileUpload } from "@/hooks/useFileUpload";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Plus, Paperclip, Loader2, Edit2 } from "lucide-react";
+import { Plus, Edit2 } from "lucide-react";
 
 interface FormProps {
   supplierId: string;
@@ -16,21 +16,32 @@ interface FormProps {
 export function SupplierInvoiceForm({ supplierId, invoice }: FormProps) {
   const isEditing = !!invoice;
   const { createInvoice, updateInvoice } = useSupplierInvoices(supplierId);
-  const { uploadFile, isUploading } = useFileUpload('supplier_invoice'); 
-  const { register, handleSubmit, reset } = useForm({
-    defaultValues: invoice || {}
+  const { register, handleSubmit, reset, watch } = useForm({
+    defaultValues: invoice || {
+      total_installments: 1,
+      product_description: "",
+      installment_amount: 0,
+      amount: 0
+    }
   });
   const [open, setOpen] = React.useState(false);
-  const [selectedFile, setSelectedFile] = React.useState<File | null>(null);
+
+  const totalInstallments = watch("total_installments");
+  const installmentAmount = watch("installment_amount");
+
+  // Cálculo automático do valor total baseado no valor da parcela
+  const calculatedTotal = (parseFloat(installmentAmount) || 0) * (parseInt(totalInstallments) || 1);
 
   const onSubmit = async (data: any) => {
     const payload = {
       supplier_id: supplierId,
       invoice_number: data.invoice_number,
       product_description: data.product_description,
-      amount: parseFloat(data.amount),
+      amount: isEditing ? parseFloat(data.amount) : calculatedTotal,
       due_date: data.due_date,
-      issue_date: data.issue_date,
+      issue_date: data.issue_date || new Date().toISOString().split('T')[0],
+      total_installments: parseInt(data.total_installments) || 1,
+      notes: data.notes || null,
     };
 
     if (isEditing) {
@@ -39,11 +50,8 @@ export function SupplierInvoiceForm({ supplierId, invoice }: FormProps) {
       });
     } else {
       createInvoice.mutate(payload, {
-        onSuccess: async (newInvoices: any) => {
-          const newId = Array.isArray(newInvoices) ? newInvoices[0]?.id : newInvoices?.id;
-          if (selectedFile && newId) await uploadFile(selectedFile, newId);
+        onSuccess: () => {
           reset();
-          setSelectedFile(null);
           setOpen(false);
         }
       });
@@ -68,31 +76,57 @@ export function SupplierInvoiceForm({ supplierId, invoice }: FormProps) {
               <Input {...register("invoice_number", { required: true })} />
             </div>
             <div className="space-y-2">
-              <Label >Data de Vencimento</Label>
+              <Label >Data de Vencimento {totalInstallments > 1 ? "(1ª Parc)" : ""}</Label>
               <Input type="date" {...register("due_date", { required: true })} />
             </div>
           </div>
           <div className="space-y-2">
-            <Label>Descrição</Label>
+            <Label>Descrição do Produto/Serviço</Label>
             <Input {...register("product_description")} />
           </div>
-          <div className="space-y-2">
-            <Label>Valor Total</Label>
-            <Input type="number" step="0.01" {...register("amount", { required: true })} />
-          </div>
           
-          {!isEditing && (
-            <div className="border-2 border-dashed rounded-lg p-4 text-center cursor-pointer">
-              <input type="file" id="file-up" className="hidden" onChange={(e) => setSelectedFile(e.target.files?.[0] || null)} />
-              <Label htmlFor="file-up" className="cursor-pointer flex flex-col items-center gap-1">
-                <Paperclip className="h-6 w-6 text-muted-foreground" />
-                <span className="text-xs text-muted-foreground">{selectedFile ? selectedFile.name : "Anexar Boleto"}</span>
-              </Label>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>{isEditing ? "Valor da Nota" : "Valor da Parcela"}</Label>
+              <Input 
+                type="number" 
+                step="0.01" 
+                placeholder="0,00" 
+                {...register(isEditing ? "amount" : "installment_amount", { required: true })} 
+              />
+            </div>
+            
+            {!isEditing && (
+              <div className="space-y-2">
+                <Label>Qtd. Parcelas</Label>
+                <Input type="number" min="1" {...register("total_installments")} />
+              </div>
+            )}
+          </div>
+
+          {!isEditing && totalInstallments > 1 && (
+            <div className="p-3 bg-muted/50 rounded-md border border-dashed text-center">
+              <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">Valor Total da Nota</p>
+              <p className="text-lg font-bold text-primary">
+                {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calculatedTotal)}
+              </p>
+              <p className="text-[10px] text-muted-foreground italic">
+                {totalInstallments} parcelas de {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(installmentAmount || 0)}
+              </p>
             </div>
           )}
+
+          <div className="space-y-2">
+            <Label>Observações</Label>
+            <Textarea 
+              placeholder="Adicione detalhes importantes sobre esta nota fiscal..." 
+              className="resize-none min-h-[80px]"
+              {...register("notes")} 
+            />
+          </div>
           
-          <Button type="submit" className="w-full" disabled={isUploading}>
-            {isUploading ? "Subindo..." : isEditing ? "Salvar Alterações" : "Cadastrar"}
+          <Button type="submit" className="w-full">
+            {isEditing ? "Salvar Alterações" : "Cadastrar"}
           </Button>
         </form>
       </DialogContent>  

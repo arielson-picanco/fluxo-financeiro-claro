@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Plus, Search, MoreHorizontal, Building2, Phone, Mail, MapPin, Eye } from "lucide-react";
+import { Plus, Search, MoreHorizontal, Building2, Phone, Mail, MapPin, Eye, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -100,15 +100,15 @@ export default function Suppliers() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Fornecedores</h1>
+          <h1 className="text-2xl font-bold tracking-tight">Contatos</h1>
           <p className="text-muted-foreground">
-            Gerencie seus fornecedores e parceiros comerciais
+            Gerencie seus fornecedores, clientes e parceiros comerciais
           </p>
         </div>
         {canWrite && (
           <Button size="sm" onClick={handleOpenCreate}>
             <Plus className="h-4 w-4 mr-2" />
-            Novo Fornecedor
+            Novo Contato
           </Button>
         )}
       </div>
@@ -118,7 +118,7 @@ export default function Suppliers() {
         <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
         <Input
           type="search"
-          placeholder="Buscar por nome, CNPJ ou categoria..."
+          placeholder="Buscar por nome, documento ou categoria..."
           className="pl-10"
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
@@ -153,7 +153,7 @@ export default function Suppliers() {
                   <div className="flex items-start justify-between">
                     <div className="flex items-center gap-3">
                       <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                        <Building2 className="h-5 w-5 text-primary" />
+                        <Users className="h-5 w-5 text-primary" />
                       </div>
                       <div>
                         <CardTitle className="text-base font-semibold">
@@ -243,11 +243,11 @@ export default function Suppliers() {
 
           {filteredSuppliers.length === 0 && (
             <div className="text-center py-12">
-              <Building2 className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-              <h3 className="text-lg font-medium">Nenhum fornecedor encontrado</h3>
+              <Users className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+              <h3 className="text-lg font-medium">Nenhum contato encontrado</h3>
               <p className="text-muted-foreground">
                 {suppliers.length === 0 
-                  ? "Comece cadastrando seu primeiro fornecedor"
+                  ? "Comece cadastrando seu primeiro contato"
                   : "Tente ajustar os filtros de busca"
                 }
               </p>
@@ -275,8 +275,8 @@ export default function Suppliers() {
       <DeleteConfirmModal
         open={isDeleteModalOpen}
         onOpenChange={setIsDeleteModalOpen}
-        title="Excluir fornecedor"
-        description={`Tem certeza que deseja excluir o fornecedor "${supplierToDelete?.name}"? Esta ação não pode ser desfeita.`}
+        title="Excluir contato"
+        description={`Tem certeza que deseja excluir o contato "${supplierToDelete?.name}"? Esta ação não pode ser desfeita.`}
         onConfirm={handleConfirmDelete}
         isLoading={isDeleting}
       />

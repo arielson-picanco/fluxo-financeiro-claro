@@ -9,6 +9,7 @@ import {
   ChevronLeft,
   ChevronRight,
   ScrollText,
+  Briefcase,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/hooks/useAuth";
@@ -34,7 +35,8 @@ const mainNavItems = [
   { title: "Dashboard", url: "/", icon: LayoutDashboard },
   { title: "Contas a Pagar", url: "/contas-pagar", icon: ArrowDownCircle },
   { title: "Contas a Receber", url: "/contas-receber", icon: ArrowUpCircle },
-  { title: "Fornecedores", url: "/fornecedores", icon: Users },
+  { title: "Contatos", url: "/contatos", icon: Users },
+  { title: "RH / Folha", url: "/rh", icon: Briefcase },
   { title: "Relatórios", url: "/relatorios", icon: FileText },
 ];
 
