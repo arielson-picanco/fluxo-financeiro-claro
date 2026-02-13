@@ -7,13 +7,18 @@ export interface Employee {
   name: string;
   document: string;
   role: string;
+  sector: string;
   salary: number;
   admission_date: string;
   resignation_date?: string;
   status: 'active' | 'inactive' | 'vacation';
   vt_value: number;
   vr_value: number;
-  bank_info?: any;
+  pix_key?: string;
+  bank_name?: string;
+  notes?: string;
+  photo_url?: string;
+  created_at?: string;
 }
 
 export const useEmployees = () => {
@@ -22,7 +27,6 @@ export const useEmployees = () => {
   const { data: employees = [], isLoading } = useQuery({
     queryKey: ["employees"],
     queryFn: async () => {
-      // Usamos 'any' para evitar erros de tipagem enquanto o cache do Supabase não atualiza
       const { data, error } = await (supabase as any)
         .from("employees")
         .select("*")
@@ -33,7 +37,7 @@ export const useEmployees = () => {
   });
 
   const createEmployee = useMutation({
-    mutationFn: async (newEmployee: Omit<Employee, 'id'>) => {
+    mutationFn: async (newEmployee: Omit<Employee, 'id' | 'created_at'>) => {
       const { data, error } = await (supabase as any)
         .from("employees")
         .insert([newEmployee])
@@ -66,7 +70,24 @@ export const useEmployees = () => {
       queryClient.invalidateQueries({ queryKey: ["employees"] });
       toast.success("Dados do funcionário atualizados!");
     },
+    onError: (error: any) => {
+      toast.error("Erro ao atualizar: " + error.message);
+    }
   });
 
-  return { employees, isLoading, createEmployee, updateEmployee };
+  const deleteEmployee = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await (supabase as any)
+        .from("employees")
+        .delete()
+        .eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["employees"] });
+      toast.success("Funcionário removido com sucesso!");
+    },
+  });
+
+  return { employees, isLoading, createEmployee, updateEmployee, deleteEmployee };
 };
