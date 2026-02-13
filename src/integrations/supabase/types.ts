@@ -12,6 +12,31 @@ export type Database = {
   __InternalSupabase: {
     PostgrestVersion: "14.1"
   }
+  graphql_public: {
+    Tables: {
+      [_ in never]: never
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      graphql: {
+        Args: {
+          extensions?: Json
+          operationName?: string
+          query?: string
+          variables?: Json
+        }
+        Returns: Json
+      }
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
+  }
   public: {
     Tables: {
       accounts_payable: {
@@ -20,7 +45,7 @@ export type Database = {
           category: string | null
           created_at: string
           created_by: string | null
-          description: string
+          description: string | null
           due_date: string
           fine_amount: number | null
           fine_rate: number | null
@@ -48,7 +73,7 @@ export type Database = {
           category?: string | null
           created_at?: string
           created_by?: string | null
-          description: string
+          description?: string | null
           due_date: string
           fine_amount?: number | null
           fine_rate?: number | null
@@ -76,7 +101,7 @@ export type Database = {
           category?: string | null
           created_at?: string
           created_by?: string | null
-          description?: string
+          description?: string | null
           due_date?: string
           fine_amount?: number | null
           fine_rate?: number | null
@@ -286,6 +311,216 @@ export type Database = {
         }
         Relationships: []
       }
+      employee_absences: {
+        Row: {
+          created_at: string | null
+          date: string
+          employee_id: string | null
+          id: string
+          justification_document_url: string | null
+          justified: boolean | null
+          reason: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          date: string
+          employee_id?: string | null
+          id?: string
+          justification_document_url?: string | null
+          justified?: boolean | null
+          reason?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          date?: string
+          employee_id?: string | null
+          id?: string
+          justification_document_url?: string | null
+          justified?: boolean | null
+          reason?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "employee_absences_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      employee_documents: {
+        Row: {
+          created_at: string | null
+          employee_id: string | null
+          file_url: string
+          id: string
+          name: string
+          type: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          employee_id?: string | null
+          file_url: string
+          id?: string
+          name: string
+          type?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          employee_id?: string | null
+          file_url?: string
+          id?: string
+          name?: string
+          type?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "employee_documents_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      employees: {
+        Row: {
+          admission_date: string
+          bank_info: Json | null
+          bank_name: string | null
+          created_at: string | null
+          document: string | null
+          id: string
+          name: string
+          notes: string | null
+          photo_url: string | null
+          pix_key: string | null
+          resignation_date: string | null
+          role: string | null
+          salary: number
+          sector: string | null
+          status: string | null
+          updated_at: string | null
+          vr_value: number | null
+          vt_value: number | null
+        }
+        Insert: {
+          admission_date: string
+          bank_info?: Json | null
+          bank_name?: string | null
+          created_at?: string | null
+          document?: string | null
+          id?: string
+          name: string
+          notes?: string | null
+          photo_url?: string | null
+          pix_key?: string | null
+          resignation_date?: string | null
+          role?: string | null
+          salary: number
+          sector?: string | null
+          status?: string | null
+          updated_at?: string | null
+          vr_value?: number | null
+          vt_value?: number | null
+        }
+        Update: {
+          admission_date?: string
+          bank_info?: Json | null
+          bank_name?: string | null
+          created_at?: string | null
+          document?: string | null
+          id?: string
+          name?: string
+          notes?: string | null
+          photo_url?: string | null
+          pix_key?: string | null
+          resignation_date?: string | null
+          role?: string | null
+          salary?: number
+          sector?: string | null
+          status?: string | null
+          updated_at?: string | null
+          vr_value?: number | null
+          vt_value?: number | null
+        }
+        Relationships: []
+      }
+      payroll: {
+        Row: {
+          absences_amount: number | null
+          absences_days: number | null
+          base_salary_proportional: number
+          created_at: string | null
+          employee_id: string | null
+          extra_hours: number | null
+          fgts_amount: number | null
+          id: string
+          inss_amount: number | null
+          net_salary: number
+          notes: string | null
+          other_deductions: number | null
+          payment_date: string
+          period_end: string
+          period_start: string
+          status: string | null
+          type: string | null
+          vr_total: number | null
+          vt_total: number | null
+        }
+        Insert: {
+          absences_amount?: number | null
+          absences_days?: number | null
+          base_salary_proportional: number
+          created_at?: string | null
+          employee_id?: string | null
+          extra_hours?: number | null
+          fgts_amount?: number | null
+          id?: string
+          inss_amount?: number | null
+          net_salary: number
+          notes?: string | null
+          other_deductions?: number | null
+          payment_date: string
+          period_end: string
+          period_start: string
+          status?: string | null
+          type?: string | null
+          vr_total?: number | null
+          vt_total?: number | null
+        }
+        Update: {
+          absences_amount?: number | null
+          absences_days?: number | null
+          base_salary_proportional?: number
+          created_at?: string | null
+          employee_id?: string | null
+          extra_hours?: number | null
+          fgts_amount?: number | null
+          id?: string
+          inss_amount?: number | null
+          net_salary?: number
+          notes?: string | null
+          other_deductions?: number | null
+          payment_date?: string
+          period_end?: string
+          period_start?: string
+          status?: string | null
+          type?: string | null
+          vr_total?: number | null
+          vt_total?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payroll_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -329,6 +564,7 @@ export type Database = {
           id: string
           invoice_number: string
           issue_date: string
+          notes: string | null
           product_description: string | null
           status: string | null
           supplier_id: string
@@ -343,6 +579,7 @@ export type Database = {
           id?: string
           invoice_number: string
           issue_date: string
+          notes?: string | null
           product_description?: string | null
           status?: string | null
           supplier_id: string
@@ -357,6 +594,7 @@ export type Database = {
           id?: string
           invoice_number?: string
           issue_date?: string
+          notes?: string | null
           product_description?: string | null
           status?: string | null
           supplier_id?: string
@@ -684,6 +922,9 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
+  graphql_public: {
+    Enums: {},
+  },
   public: {
     Enums: {
       account_status: ["a_vencer", "vencida", "paga", "renegociada"],
