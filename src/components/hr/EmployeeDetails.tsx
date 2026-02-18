@@ -10,6 +10,8 @@ import {
   AlertCircle, CheckCircle2, Loader2
 } from "lucide-react";
 import { useFileUpload, Attachment } from "@/hooks/useFileUpload";
+import { useAbsences } from "@/hooks/useAbsences";
+import { AbsenceModal } from "./AbsenceModal";
 import { cn } from "@/lib/utils";
 
 interface DetailsProps {
@@ -19,6 +21,7 @@ interface DetailsProps {
 export function EmployeeDetails({ employee }: DetailsProps) {
   // Corrigido: useFileUpload retorna deleteAttachment em vez de deleteFile
   const { attachments, uploadFile, downloadFile, deleteAttachment, isUploading } = useFileUpload('employee_documents', employee.id);
+  const { absences, deleteAbsence } = useAbsences(employee.id);
   
   // Cálculo de dias trabalhados (considerando início imediato)
   const daysWorked = differenceInDays(
@@ -169,11 +172,45 @@ export function EmployeeDetails({ employee }: DetailsProps) {
           <Card>
             <CardHeader className="flex flex-row items-center justify-between">
               <CardTitle className="text-sm">Histórico de Faltas e Justificativas</CardTitle>
-              <Button size="sm" variant="destructive" className="h-8"><AlertCircle className="h-4 w-4 mr-2" /> Registrar Falta</Button>
+              <AbsenceModal employeeId={employee.id} />
             </CardHeader>
             <CardContent>
-              <div className="text-center py-10 text-muted-foreground italic text-sm">
-                Funcionalidade de registro de faltas em desenvolvimento.
+              <div className="space-y-4">
+                {absences.map((absence) => (
+                  <div key={absence.id} className="flex items-center justify-between p-4 rounded-lg border bg-muted/20">
+                    <div className="flex items-start gap-4">
+                      <div className={cn(
+                        "p-2 rounded-full",
+                        absence.justified ? "bg-green-100 text-green-600" : "bg-red-100 text-red-600"
+                      )}>
+                        <AlertCircle className="h-5 w-5" />
+                      </div>
+                      <div>
+                        <p className="font-medium">{absence.reason}</p>
+                        <p className="text-sm text-muted-foreground">
+                          {format(new Date(absence.date), 'dd/MM/yyyy')} • {absence.justified ? 'Justificada' : 'Não justificada'}
+                        </p>
+                      </div>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                      onClick={() => {
+                        if (confirm("Tem certeza que deseja remover este registro de falta?")) {
+                          deleteAbsence.mutate(absence.id);
+                        }
+                      }}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ))}
+                {absences.length === 0 && (
+                  <div className="text-center py-10 text-muted-foreground italic text-sm">
+                    Nenhuma falta registrada.
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>
