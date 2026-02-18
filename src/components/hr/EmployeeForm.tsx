@@ -21,6 +21,7 @@ export function EmployeeForm({ employee, onSuccess }: FormProps) {
   const { uploadFile } = useFileUpload('employee_photos');
   const [open, setOpen] = React.useState(false);
   const [photoPreview, setPhotoPreview] = React.useState<string | null>(employee?.photo_url || null);
+  const [photoFile, setPhotoFile] = React.useState<File | null>(null);
 
   const { register, handleSubmit, reset, setValue, watch } = useForm({
     defaultValues: employee || {
@@ -36,14 +37,10 @@ export function EmployeeForm({ employee, onSuccess }: FormProps) {
   const handlePhotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      setPhotoFile(file);
       const reader = new FileReader();
       reader.onloadend = () => setPhotoPreview(reader.result as string);
       reader.readAsDataURL(file);
-      
-      if (isEditing && employee?.id) {
-        const url = await uploadFile(file, employee.id);
-        if (url) updateEmployee.mutate({ id: employee.id, photo_url: url });
-      }
     }
   };
 
@@ -63,17 +60,32 @@ export function EmployeeForm({ employee, onSuccess }: FormProps) {
     };
 
     if (isEditing) {
-      updateEmployee.mutate({ id: employee.id, ...payload }, {
+      const finalPayload = { ...payload };
+      if (photoFile && employee?.id) {
+        const url = await uploadFile(photoFile, employee.id);
+        if (url) finalPayload.photo_url = url;
+      }
+
+      updateEmployee.mutate({ id: employee.id, ...finalPayload }, {
         onSuccess: () => {
           setOpen(false);
+          setPhotoFile(null);
           if (onSuccess) onSuccess();
         }
       });
     } else {
       createEmployee.mutate(payload, {
-        onSuccess: () => {
+        onSuccess: async (newEmployee) => {
+          if (photoFile && newEmployee?.id) {
+            const url = await uploadFile(photoFile, newEmployee.id);
+            if (url) {
+              updateEmployee.mutate({ id: newEmployee.id, photo_url: url });
+            }
+          }
           reset();
           setOpen(false);
+          setPhotoFile(null);
+          setPhotoPreview(null);
           if (onSuccess) onSuccess();
         }
       });
