@@ -1,1 +1,0 @@
-ALTER TABLE IF EXISTS public.supplier_invoices ADD COLUMN IF NOT EXISTS attachment_url TEXT;

@@ -7,8 +7,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useEmployees, Employee } from "@/hooks/useEmployees";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { UserPlus, Camera } from "lucide-react";
+import { UserPlus, Camera, Loader2 } from "lucide-react";
 import { useFileUpload } from "@/hooks/useFileUpload";
+import { toast } from "sonner";
 
 interface FormProps {
   employee?: Employee;
@@ -18,7 +19,7 @@ interface FormProps {
 export function EmployeeForm({ employee, onSuccess }: FormProps) {
   const isEditing = !!employee;
   const { createEmployee, updateEmployee } = useEmployees();
-  const { uploadFile } = useFileUpload('employee_photos');
+  const { uploadFile, isUploading } = useFileUpload('employee_photos');
   const [open, setOpen] = React.useState(false);
   const [photoPreview, setPhotoPreview] = React.useState<string | null>(employee?.photo_url || null);
 
@@ -36,19 +37,28 @@ export function EmployeeForm({ employee, onSuccess }: FormProps) {
   const handlePhotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      // Preview local imediato
       const reader = new FileReader();
       reader.onloadend = () => setPhotoPreview(reader.result as string);
       reader.readAsDataURL(file);
       
       if (isEditing && employee?.id) {
-        const url = await uploadFile(file, employee.id);
-        if (url) updateEmployee.mutate({ id: employee.id, photo_url: url });
+        try {
+          // Upload para o bucket 'employee_photos' com record_type 'employee_photo'
+          const url = await uploadFile(file, employee.id);
+          if (url) {
+            updateEmployee.mutate({ id: employee.id, photo_url: url });
+            toast.success("Foto atualizada com sucesso!");
+          }
+        } catch (error: any) {
+          console.error("Erro no upload:", error);
+          toast.error("Erro ao salvar foto: " + error.message);
+        }
       }
     }
   };
 
   const onSubmit = async (data: any) => {
-    // Tratamento rigoroso de datas para evitar erro de string vazia no Postgres
     const payload = {
       ...data,
       salary: parseFloat(data.salary) || 0,
@@ -60,6 +70,7 @@ export function EmployeeForm({ employee, onSuccess }: FormProps) {
       bank_name: data.bank_name || null,
       notes: data.notes || null,
       sector: data.sector || null,
+      photo_url: photoPreview // Mantém a URL da foto se já existir
     };
 
     if (isEditing) {
@@ -97,7 +108,9 @@ export function EmployeeForm({ employee, onSuccess }: FormProps) {
           <div className="flex flex-col md:flex-row gap-6">
             <div className="flex flex-col items-center gap-2">
               <div className="relative w-32 h-32 rounded-full bg-muted flex items-center justify-center overflow-hidden border-2 border-dashed border-muted-foreground/20">
-                {photoPreview ? (
+                {isUploading ? (
+                  <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                ) : photoPreview ? (
                   <img src={photoPreview} alt="Preview" className="w-full h-full object-cover" />
                 ) : (
                   <Camera className="h-8 w-8 text-muted-foreground/40" />
@@ -108,12 +121,15 @@ export function EmployeeForm({ employee, onSuccess }: FormProps) {
                   className="hidden" 
                   accept="image/*"
                   onChange={handlePhotoChange}
+                  disabled={isUploading}
                 />
                 <label 
                   htmlFor="photo-upload" 
                   className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity cursor-pointer"
                 >
-                  <span className="text-white text-xs font-medium">Alterar Foto</span>
+                  <span className="text-white text-xs font-medium">
+                    {isUploading ? "Enviando..." : "Alterar Foto"}
+                  </span>
                 </label>
               </div>
               <p className="text-[10px] text-muted-foreground">JPG ou PNG, máx 2MB</p>
