@@ -3,18 +3,25 @@ import { useEmployees, Employee } from "@/hooks/useEmployees";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Users, Receipt, Calculator, Wallet, Eye, Trash2, Search } from "lucide-react";
+import { Users, Receipt, Calculator, Wallet, Eye, Trash2, Search, Calendar, Loader2 } from "lucide-react";
 import { format } from "date-fns";
+import { ptBR } from "date-fns/locale";
 import { EmployeeForm } from "@/components/hr/EmployeeForm";
 import { EmployeeDetails } from "@/components/hr/EmployeeDetails";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 export default function HR() {
-  const { employees, isLoading, deleteEmployee } = useEmployees();
+  const { employees, isLoading, deleteEmployee, generatePayroll } = useEmployees();
   const [activeTab, setActiveTab] = useState<'employees' | 'payroll'>('employees');
   const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
+  
+  // Estados para geração de folha
+  const [payrollMonth, setPayrollMonth] = useState(new Date().getMonth() + 1);
+  const [payrollYear, setPayrollYear] = useState(new Date().getFullYear());
+  const [payrollType, setPayrollType] = useState<'first_half' | 'second_half'>('first_half');
 
   const filteredEmployees = employees?.filter(emp => 
     emp.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -27,6 +34,22 @@ export default function HR() {
       deleteEmployee.mutate(id);
     }
   };
+
+  const handleGeneratePayroll = () => {
+    const periodName = payrollType === 'first_half' ? 'Adiantamento (15)' : 'Saldo + Benefícios (30)';
+    if (window.confirm(`Deseja gerar a folha de ${periodName} para ${payrollMonth}/${payrollYear}? Isso criará lançamentos automáticos no Contas a Pagar.`)) {
+      generatePayroll.mutate({
+        month: payrollMonth,
+        year: payrollYear,
+        type: payrollType
+      });
+    }
+  };
+
+  const monthNames = [
+    "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
+    "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"
+  ];
 
   return (
     <div className="container mx-auto p-6 space-y-6">
@@ -186,17 +209,81 @@ export default function HR() {
           </CardContent>
         </Card>
       ) : (
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle>Processamento de Folha (Quinzenal)</CardTitle>
-            <Button size="sm" variant="secondary"><Calculator className="mr-2 h-4 w-4" /> Gerar Folha do Período</Button>
-          </CardHeader>
-          <CardContent>
-            <div className="text-center py-10 text-muted-foreground italic">
-              Selecione um período para visualizar ou processar a folha de pagamento.
-            </div>
-          </CardContent>
-        </Card>
+        <div className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Processamento de Folha (Quinzenal)</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end p-4 bg-muted/30 rounded-lg border border-dashed">
+                <div className="space-y-2">
+                  <label className="text-xs font-bold uppercase text-muted-foreground">Mês</label>
+                  <Select value={String(payrollMonth)} onValueChange={(v) => setPayrollMonth(Number(v))}>
+                    <SelectTrigger className="bg-background">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {monthNames.map((name, i) => (
+                        <SelectItem key={i + 1} value={String(i + 1)}>
+                          {name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <label className="text-xs font-bold uppercase text-muted-foreground">Ano</label>
+                  <Select value={String(payrollYear)} onValueChange={(v) => setPayrollYear(Number(v))}>
+                    <SelectTrigger className="bg-background">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {[2024, 2025, 2026].map(year => (
+                        <SelectItem key={year} value={String(year)}>{year}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <label className="text-xs font-bold uppercase text-muted-foreground">Período</label>
+                  <Select value={payrollType} onValueChange={(v) => setPayrollType(v as any)}>
+                    <SelectTrigger className="bg-background">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="first_half">Adiantamento (Dia 15)</SelectItem>
+                      <SelectItem value="second_half">Saldo + Benefícios (Dia 30)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <Button 
+                  className="w-full gap-2" 
+                  onClick={handleGeneratePayroll}
+                  disabled={generatePayroll.isPending}
+                >
+                  {generatePayroll.isPending ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Calculator className="h-4 w-4" />
+                  )}
+                  Gerar Folha do Período
+                </Button>
+              </div>
+
+              <div className="rounded-md border border-dashed p-10 text-center space-y-3">
+                <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center mx-auto">
+                  <Calendar className="h-6 w-6 text-muted-foreground" />
+                </div>
+                <div className="max-w-xs mx-auto">
+                  <h3 className="font-semibold">Histórico de Processamento</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Os registros de folha gerados aparecerão aqui e serão lançados automaticamente no seu Contas a Pagar.
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
       )}
 
       {/* Modal de Detalhes do Funcionário */}

@@ -59,13 +59,24 @@ export function EmployeeForm({ employee, onSuccess }: FormProps) {
   };
 
   const onSubmit = async (data: any) => {
+    // Lógica corrigida para Data de Saída:
+    // Se o status for 'active', a data de saída DEVE ser nula, independentemente do que estiver no formulário.
+    // Se o status for 'inactive' e não houver data preenchida, usamos a data atual.
+    let resignationDate = data.resignation_date && data.resignation_date !== "" ? data.resignation_date : null;
+    
+    if (data.status === 'active') {
+      resignationDate = null;
+    } else if (data.status === 'inactive' && !resignationDate) {
+      resignationDate = new Date().toISOString().split('T')[0];
+    }
+
     const payload = {
       ...data,
       salary: parseFloat(data.salary) || 0,
       vt_value: parseFloat(data.vt_value) || 0,
       vr_value: parseFloat(data.vr_value) || 0,
       admission_date: data.admission_date || new Date().toISOString().split('T')[0],
-      resignation_date: data.resignation_date && data.resignation_date !== "" ? data.resignation_date : null,
+      resignation_date: resignationDate,
       pix_key: data.pix_key || null,
       bank_name: data.bank_name || null,
       notes: data.notes || null,
